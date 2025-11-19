@@ -1,0 +1,28 @@
+body {
+    background: #f0f0f0;
+    font-family: Arial;
+}
+
+.box {
+    width: 350px;
+    margin: 60px auto;
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+button {
+    background: #4a90e2;
+    color: white;
+    padding: 12px 22px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.error {
+    color: red;
+    margin-bottom: 15px;
+}
