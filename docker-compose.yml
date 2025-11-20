@@ -2,17 +2,24 @@ version: "3.8"
 
 services:
   ganache:
-    image: trufflesuite/ganache
+    image: trufflesuite/ganache:latest
     container_name: ganache
     ports:
       - "8545:8545"
+    volumes:
+      - ./ganache_data:/data
     command:
       - --host=0.0.0.0
       - --port=8545
-      - --accounts=10
-      - --defaultBalanceEther=1000
-      - --networkId=1337
-      - --miner.blockTime=2
-    volumes:
-      - ./data:/data
 
+      # Apenas mnemonic (determinístico automaticamente)
+      - --wallet.mnemonic=minimum symptom minute gloom tragic situate silver mechanic salad amused elite beef
+
+      # Persistir DB
+      - --database.dbPath=/data
+
+      # Chain ID fixo
+      - --chain.chainId=5777
+
+      # Debug logs
+      - --logging.debug=true

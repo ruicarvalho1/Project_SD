@@ -1,6 +1,6 @@
 pragma solidity ^0.8.10;
 
-import "./interfaces/IAuction.sol";
+import "../interfaces/IAuction.sol";
 import "./Balances.sol";
 
 
