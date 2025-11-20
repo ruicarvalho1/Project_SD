@@ -1,0 +1,16 @@
+{
+  "contracts": {
+    "Auction": "95fd301ab4fcd0cd966537a0659f6eae0c4d9704",
+    "Balances": "8f9ba69f11046f675790c15e10cf8926d3bfb64d"
+  },
+  "tests": {
+    "tests/test_auction.py": {
+      "coverage": false,
+      "isolated": false,
+      "results": ".",
+      "sha1": "cbfee713f2fff7b947449e0e199dc50035951e0b",
+      "txhash": []
+    }
+  },
+  "tx": {}
+}
