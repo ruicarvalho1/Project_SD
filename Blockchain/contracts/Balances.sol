@@ -1,23 +1,31 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
 import "../interfaces/IBalances.sol";
 
-
-
 contract Balances is IBalances {
-    mapping(address => uint) internal balances;
+    mapping(address => uint256) internal balances;
+    mapping(address => bool) internal initialized;
 
-    function setInitialBalance(address user, uint amount) internal {
-        balances[user] = amount;
+    uint256 public constant INITIAL_BALANCE = 1000;
+
+    function _ensureInit(address user) internal {
+        if (!initialized[user]) {
+            initialized[user] = true;
+            balances[user] = INITIAL_BALANCE;
+        }
     }
 
-    function claimBalance() external {
-    require(balances[msg.sender] == 0, "Already claimed");
-    balances[msg.sender] = 100;
-}
+    function initUser() internal {
+        _ensureInit(msg.sender);
+    }
 
 
-    function getBalance(address user) external view override returns(uint) {
+    function getBalance(address user) external view override returns (uint256) {
+
+        if (!initialized[user]) {
+            return INITIAL_BALANCE;
+        }
         return balances[user];
     }
 }
