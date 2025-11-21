@@ -12,14 +12,11 @@ services:
       - --host=0.0.0.0
       - --port=8545
 
-      # Apenas mnemonic (determinístico automaticamente)
       - --wallet.mnemonic=minimum symptom minute gloom tragic situate silver mechanic salad amused elite beef
 
-      # Persistir DB
+
       - --database.dbPath=/data
 
-      # Chain ID fixo
       - --chain.chainId=5777
 
-      # Debug logs
       - --logging.debug=true

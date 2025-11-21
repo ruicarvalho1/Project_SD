@@ -12,20 +12,28 @@ CA_CERT_URL = "http://localhost:5000/ca_cert"
 key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
 with open("client_private_key.pem", "wb") as f:
-    f.write(key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption()
-    ))
+    f.write(
+        key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+    )
 
 
 # 2) Build CSR (simple identity)
 csr_builder = x509.CertificateSigningRequestBuilder()
-csr_builder = csr_builder.subject_name(x509.Name([
-    x509.NameAttribute(NameOID.COUNTRY_NAME, "PT"),
-    x509.NameAttribute(NameOID.ORGANIZATION_NAME, "AuctionUser"),
-    x509.NameAttribute(NameOID.COMMON_NAME, "user123"),   # change dynamically later
-]))
+csr_builder = csr_builder.subject_name(
+    x509.Name(
+        [
+            x509.NameAttribute(NameOID.COUNTRY_NAME, "PT"),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "AuctionUser"),
+            x509.NameAttribute(
+                NameOID.COMMON_NAME, "user123"
+            ),  # change dynamically later
+        ]
+    )
+)
 
 # 3) Optional: add KeyUsage + EKU (CA will include CLIENT_AUTH anyway)
 csr = csr_builder.sign(key, hashes.SHA256())

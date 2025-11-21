@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  database:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: caserver
+      POSTGRES_PASSWORD: caserver
+      POSTGRES_DB: ca_server
+    ports:
+      - "5432:5432"
+
+  api:
+    build: .
+    env_file: .env
+    depends_on:
+      - database

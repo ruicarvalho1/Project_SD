@@ -28,17 +28,21 @@ def bootstrap_ca():
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
     with open(CA_KEY_PATH, "wb") as f:
-        f.write(private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
-        ))
+        f.write(
+            private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
+        )
 
-    subject = issuer = x509.Name([
-        x509.NameAttribute(NameOID.COUNTRY_NAME, "PT"),
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "MyAuctionCA"),
-        x509.NameAttribute(NameOID.COMMON_NAME, "myauction.root.ca"),
-    ])
+    subject = issuer = x509.Name(
+        [
+            x509.NameAttribute(NameOID.COUNTRY_NAME, "PT"),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "MyAuctionCA"),
+            x509.NameAttribute(NameOID.COMMON_NAME, "myauction.root.ca"),
+        ]
+    )
 
     now = datetime.datetime.utcnow()
 
@@ -108,7 +112,10 @@ def sign_csr():
             csr.signature_hash_algorithm,
         )
     except Exception as e:
-        return jsonify({"error": "CSR signature verification failed", "details": str(e)}), 400
+        return (
+            jsonify({"error": "CSR signature verification failed", "details": str(e)}),
+            400,
+        )
 
     # Minimal policy (RSA >= 2048)
     if csr.public_key().key_size < 2048:
@@ -127,8 +134,7 @@ def sign_csr():
         .not_valid_after(now + datetime.timedelta(days=365))
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
         .add_extension(
-            x509.ExtendedKeyUsage([ExtendedKeyUsageOID.CLIENT_AUTH]),
-            critical=False
+            x509.ExtendedKeyUsage([ExtendedKeyUsageOID.CLIENT_AUTH]), critical=False
         )
     )
 
@@ -141,7 +147,11 @@ def sign_csr():
     with open(filename, "wb") as f:
         f.write(user_cert.public_bytes(serialization.Encoding.PEM))
 
-    return user_cert.public_bytes(serialization.Encoding.PEM).decode(), 200, {"Content-Type": "text/plain"}
+    return (
+        user_cert.public_bytes(serialization.Encoding.PEM).decode(),
+        200,
+        {"Content-Type": "text/plain"},
+    )
 
 
 if __name__ == "__main__":
