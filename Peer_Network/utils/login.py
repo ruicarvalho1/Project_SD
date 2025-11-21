@@ -69,26 +69,6 @@ def blockchain_verify_registration(address):
 
 
 def login():
-    try:
-        ca_cert = load_ca_certificate()
-        peer_cert, peer_key = load_peer_credentials()
-
-        if not verify_certificate(ca_cert, peer_cert):
-            return False, None
-
-        eth_address = derive_ethereum_address(peer_cert)
-
-        # blockchain check
-        is_registered = check_registration_in_blockchain(eth_address)
-        if not is_registered:
-            return False, None
-
-        return True, eth_address
-
-    except Exception as e:
-        print("Erro no login:", e)
-        return False, None
-
     print("\n=== LOGIN DO PEER ===")
 
     peer_cert, ca_cert = load_certificates()
