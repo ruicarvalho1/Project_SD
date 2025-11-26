@@ -2,3 +2,7 @@ web3
 py-solc-x
 eth-brownie
 psycopg2-binary
+Django
+flask
+cryptography
+requests

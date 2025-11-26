@@ -1,7 +1,7 @@
-Django
+web3
+py-solc-x
 psycopg2-binary
+Django
 flask
 cryptography
-datetime
-os
 requests
