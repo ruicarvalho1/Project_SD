@@ -1,2 +1,7 @@
 Django
 psycopg2-binary
+flask
+cryptography
+datetime
+os
+requests
