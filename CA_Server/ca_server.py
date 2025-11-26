@@ -6,11 +6,11 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.x509.oid import NameOID, ExtendedKeyUsageOID
+from cryptography.x509.oid import NameOID
 
+import requests
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STORAGE_DIR = os.path.join(BASE_DIR, "storage")
-ISSUED_DIR = os.path.join(STORAGE_DIR, "issued")
-os.makedirs(ISSUED_DIR, exist_ok=True)
 
 CA_KEY_PATH = os.path.join(STORAGE_DIR, "ca_private_key.pem")
 CA_CERT_PATH = os.path.join(STORAGE_DIR, "ca_cert.pem")
@@ -98,10 +98,17 @@ def sign_csr():
 
     csr_pem = data["csr"]
 
+    # Load CSR
     try:
         csr = x509.load_pem_x509_csr(csr_pem.encode())
     except Exception as e:
         return jsonify({"error": "Invalid CSR format", "details": str(e)}), 400
+
+    # Extract username from CSR subject CN
+    try:
+        username = csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+    except Exception:
+        return jsonify({"error": "CSR missing COMMON_NAME (username)"}), 400
 
     # Verify CSR signature
     try:
@@ -112,19 +119,16 @@ def sign_csr():
             csr.signature_hash_algorithm,
         )
     except Exception as e:
-        return (
-            jsonify({"error": "CSR signature verification failed", "details": str(e)}),
-            400,
-        )
+        return jsonify({"error": "CSR signature verification failed", "details": str(e)}), 400
 
-    # Minimal policy (RSA >= 2048)
+    # RSA policy
     if csr.public_key().key_size < 2048:
         return jsonify({"error": "RSA key too small"}), 400
 
     now = datetime.datetime.utcnow()
 
-    # BUILD CERTIFICATE FOR AUTHENTICATION
-    builder = (
+    # Build certificate BEFORE using user_cert
+    user_cert = (
         x509.CertificateBuilder()
         .subject_name(csr.subject)
         .issuer_name(ca_cert.subject)
@@ -134,25 +138,33 @@ def sign_csr():
         .not_valid_after(now + datetime.timedelta(days=365))
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
         .add_extension(
-            x509.ExtendedKeyUsage([ExtendedKeyUsageOID.CLIENT_AUTH]), critical=False
+            x509.ExtendedKeyUsage([ExtendedKeyUsageOID.CLIENT_AUTH]),
+            critical=False,
         )
+        .sign(private_key=ca_private_key, algorithm=hashes.SHA256())
     )
 
-    user_cert = builder.sign(private_key=ca_private_key, algorithm=hashes.SHA256())
+    cert_pem = user_cert.public_bytes(serialization.Encoding.PEM).decode()
+    serial = str(user_cert.serial_number)
 
-    # Save certificate
-    serial = user_cert.serial_number
-    filename = os.path.join(ISSUED_DIR, f"{serial}.pem")
+    try:
+        r = requests.post(
+            "http://127.0.0.1:8000/api/store/",
+            json={
+                "username": username,
+                "certificate_pem": cert_pem,
+                "serial_number": serial
+            },
+            timeout=3
+        )
 
-    with open(filename, "wb") as f:
-        f.write(user_cert.public_bytes(serialization.Encoding.PEM))
+        if r.status_code != 200:
+            return jsonify({"error": "Django rejected certificate", "details": r.text}), 500
 
-    return (
-        user_cert.public_bytes(serialization.Encoding.PEM).decode(),
-        200,
-        {"Content-Type": "text/plain"},
-    )
+    except Exception as e:
+        return jsonify({"error": "Could not contact Django API", "details": str(e)}), 500
 
+    return cert_pem, 200, {"Content-Type": "text/plain"}
 
 if __name__ == "__main__":
     app.run(port=5000)

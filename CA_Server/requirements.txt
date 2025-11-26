@@ -1,7 +1,0 @@
-web3
-py-solc-x
-psycopg2-binary
-Django
-flask
-cryptography
-requests
