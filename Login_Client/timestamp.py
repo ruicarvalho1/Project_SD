@@ -1,7 +1,6 @@
 # tsa_test_client.py
 import base64
 import hashlib
-import json
 import requests
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
@@ -22,7 +21,7 @@ def verify_tsa_token(token: dict, original_data: bytes):
 
     # Check digest matches our data
     if digest_bytes != sha256_bytes(original_data):
-        print("❌ Digest mismatch! TSA token does not match original data.")
+        print("Digest mismatch! TSA token does not match original data.")
         return False
 
     # Get TSA certificate
@@ -54,40 +53,23 @@ def verify_tsa_token(token: dict, original_data: bytes):
             ),
             hashes.SHA256(),
         )
-        print("✔ TSA signature verified successfully!")
+        print("TSA signature verified successfully!")
         return True
     except Exception as e:
-        print("❌ TSA signature verification failed:", e)
+        print("TSA signature verification failed:", e)
         return False
 
-
-if __name__ == "__main__":
-    print("Testing TSA...")
-
-    # ---------- 1. Dummy data ----------
-    data = b"Hello TSA, please timestamp me!"
-
-    # ---------- 2. Compute digest ----------
+def request_timestamp(data: bytes):
     digest = sha256_bytes(data)
     digest_b64 = base64.b64encode(digest).decode()
 
-    # ---------- 3. Send timestamp request ----------
     payload = {
         "digest_b64": digest_b64,
         "digest_algo": "sha256"
     }
 
-    response = requests.post(TSA_URL, json=payload)
+    resp = requests.post(TSA_URL, json=payload)
+    resp.raise_for_status()
+    return resp.json()
 
-    if response.status_code != 200:
-        print("❌ TSA error:", response.text)
-        exit(1)
 
-    token = response.json()
-
-    print("\n===== TSA Token Received =====")
-    print(json.dumps(token, indent=2))
-
-    # ---------- 4. Verify the TSA token ----------
-    print("\nVerifying TSA token...")
-    verify_tsa_token(token, data)

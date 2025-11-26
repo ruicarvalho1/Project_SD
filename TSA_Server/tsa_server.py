@@ -2,7 +2,6 @@
 import os
 import base64
 import uuid
-import json
 import datetime as dt
 from flask import Flask, request, jsonify
 from cryptography.hazmat.primitives import serialization, hashes
@@ -16,7 +15,6 @@ os.makedirs(STORAGE, exist_ok=True)
 
 TSA_KEY_PATH = os.path.join(STORAGE, "tsa_private_key.pem")
 TSA_CERT_PATH = os.path.join(STORAGE, "tsa_cert.pem")
-LOG_PATH = os.path.join(STORAGE, "tsa_tokens.log")
 
 def bootstrap_tsa():
     if os.path.exists(TSA_KEY_PATH) and os.path.exists(TSA_CERT_PATH):
@@ -123,10 +121,6 @@ def timestamp():
         "signature_b64": signature_b64,
         "tsa_cert_pem": tsa_cert_pem
     }
-
-    # append a simple JSON line to log for audit
-    with open(LOG_PATH, "a") as lf:
-        lf.write(json.dumps(resp) + "\n")
 
     return jsonify(resp), 200
 
