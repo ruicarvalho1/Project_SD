@@ -1,7 +1,7 @@
 import requests
 
-CA_SIGN_URL = "http://127.0.0.1:5000/sign_csr"
-CA_CERT_URL = "http://127.0.0.1:5000/ca_cert"
+CA_SIGN_URL = "http://127.0.0.1:5001/sign_csr"
+CA_CERT_URL = "http://127.0.0.1:5001/ca_cert"
 
 def request_certificate(csr_pem: str) -> str:
     resp = requests.post(CA_SIGN_URL, json={"csr": csr_pem})

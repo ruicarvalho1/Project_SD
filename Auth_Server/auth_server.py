@@ -1,64 +1,97 @@
-from flask import Flask, request, jsonify
-from cryptography import x509
-from cryptography.x509.oid import NameOID
-from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
-import requests
+from cryptography.hazmat.primitives.asymmetric import padding
+import os, sys
+import base64
+import datetime
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+sys.path.append(project_root)
 
-CA_CERT_URL = "http://127.0.0.1:5000/ca_cert"
+from flask import Flask, request, jsonify
+from CA_Server.core.django_client import get_trusted_user_cert
+
 
 app = Flask(__name__)
 
-# -----------------------------------------
-# 1) Bootstrap CA dynamically
-# -----------------------------------------
-print("Fetching CA certificate from:", CA_CERT_URL)
-resp = requests.get(CA_CERT_URL)
-
-if resp.status_code != 200:
-    raise Exception("Auth Server cannot start: CA unreachable")
-
-ca_cert_pem = resp.text
-ca_cert = x509.load_pem_x509_certificate(ca_cert_pem.encode())
-
-print("CA certificate loaded successfully.")
+AUTH_SESSIONS = {}
 
 
-# -----------------------------------------
-# 2) LOGIN endpoint
-# -----------------------------------------
-@app.route("/login", methods=["POST"])
-def login():
+@app.route("/auth/challenge", methods=["POST"])
+def request_challenge():
+    """
+    Phase 1: Client requests a challenge nonce.
+    """
     data = request.get_json()
+    username = data.get("username")
 
-    if "certificate" not in data:
-        return jsonify({"error": "Missing certificate"}), 400
+    if not username:
+        return jsonify({"error": "Username required"}), 400
 
-    cert_pem = data["certificate"]
+    # 1. Generate Nonce
+    nonce = os.urandom(32)
 
-    # Load certificate sent by client
+    # 2. Save Session with Expiry
+    AUTH_SESSIONS[username] = {
+        'nonce': nonce,
+        'expires_at': datetime.datetime.utcnow() + datetime.timedelta(minutes=2)
+    }
+
+    print(f" [AUTH] Challenge generated for {username}")
+
+    return jsonify({
+        "nonce": base64.b64encode(nonce).decode()
+    })
+
+
+@app.route("/auth/login", methods=["POST"])
+def perform_login():
+    """
+    Phase 2 : Client responds with signed nonce for authentication.
+    """
+    data = request.get_json()
+    username = data.get("username")
+    signature_b64 = data.get("signature")
+
+    if not username or not signature_b64:
+        return jsonify({"error": "Missing credentials"}), 400
+
+    # 1. Retrieve Session
+    if username not in AUTH_SESSIONS:
+        return jsonify({"error": "Challenge not requested or expired"}), 400
+
+    session = AUTH_SESSIONS.pop(username)
+
+    if datetime.datetime.utcnow() > session['expires_at']:
+        return jsonify({"error": "Time limit exceeded"}), 408
+
+
+    user_cert = get_trusted_user_cert(username)
+
+    if not user_cert:
+        return jsonify({"error": "User not found or certificate revoked"}), 403
+
+    # 3. Verify Signature
     try:
-        client_cert = x509.load_pem_x509_certificate(cert_pem.encode())
-    except Exception as e:
-        return jsonify({"error": "Invalid certificate format"}), 400
+        signature = base64.b64decode(signature_b64)
+        public_key = user_cert.public_key()
 
-    # Validate signature
-    try:
-        ca_cert.public_key().verify(
-            client_cert.signature,
-            client_cert.tbs_certificate_bytes,
-            padding.PKCS1v15(),
-            client_cert.signature_hash_algorithm,
+
+        public_key.verify(
+            signature,
+            session['nonce'],
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
         )
     except Exception as e:
-        return jsonify({"error": "Certificate NOT signed by CA"}), 403
+        print(f" [FAIL] Signature check failed for {username}: {e}")
+        return jsonify({"error": "Invalid signature"}), 401
 
-    # DO NOT return username (preserve anonymity)
-    return jsonify({
-        "message": "authenticated",
-        "status": "ok"
-    }), 200
+    print(f" [SUCCESS] {username} logged in.")
+    return jsonify({"status": "authenticated", "token": "TODO_GENERATE_JWT"}), 200
 
 
 if __name__ == "__main__":
-    app.run(port=6001)
+    app.run(port=6001, debug=True)

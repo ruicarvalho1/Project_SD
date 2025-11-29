@@ -2,7 +2,7 @@ from django.db import models
 
 class UserCertificate(models.Model):
     user_id = models.AutoField(primary_key=True)
-    username = models.TextField()
+    username = models.CharField(max_length=255, unique=True)
     certificate_pem = models.TextField()
     serial_number = models.CharField(max_length=256, unique=True)
     def __str__(self):
