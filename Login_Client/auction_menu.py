@@ -2,12 +2,62 @@ import json
 import base64
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
-from timestamp import request_timestamp
+from Login_Client.timestamp import request_timestamp
 
+def auction_menu(user_folder, username):
 
+    while True:
+        print("\n=====================================")
+        print("              AUCTION MENU           ")
+        print("=====================================")
+        print(f"Logged in as: {username}")
+        print("-------------------------------------")
+        print("1. View All Auctions")
+        print("2. View My Auctions")
+        print("3. Create New Auction")
+        print("4. Make a Bid")
+        print("5. Exit")
+        print("-------------------------------------")
+
+        choice = input("Choose an option: ").strip()
+
+        match choice:
+            case "1":
+                view_all_auctions()
+
+            case "2":
+                view_my_auctions(username)
+
+            case "3":
+                create_auction(username)
+
+            case "4":
+                handle_bid(user_folder)
+
+            case "5":
+                print("Exiting...")
+                return
+
+            case _:
+                print("Invalid option. Please try again.")
+
+def view_all_auctions():
+    print("Fazer função")
+
+def view_my_auctions(username):
+    print("Fazer função")
+    
+def create_auction(username):
+    print("Fazer função")
+
+# Melhorar esta função
 def handle_bid(user_folder):
+    
+    print("\n=== Make a Bid ===")
+
     auction_id = input("Auction ID: ").strip()
-    value = input("Enter your bid value: ").strip()
+    value = input("Bid Value: ").strip()
+
 
     # 1. Build bid object
     bid = {

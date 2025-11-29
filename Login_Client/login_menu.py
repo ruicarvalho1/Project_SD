@@ -3,8 +3,8 @@ import shutil
 from pathlib import Path
 
 # Project imports
-from identity.paths import get_user_folder
-from identity.manager import (
+from Login_Client.identity.paths import get_user_folder
+from Login_Client.identity.manager import (
     identity_exists,
     generate_keypair,
     save_private_key,
