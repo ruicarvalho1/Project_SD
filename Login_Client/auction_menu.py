@@ -2,7 +2,7 @@ import json
 import base64
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
-from timestamp import request_timestamp
+from Login_Client.timestamp import request_timestamp
 
 def auction_menu(user_folder, username):
 

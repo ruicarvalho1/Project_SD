@@ -3,17 +3,17 @@ import shutil
 from pathlib import Path
 
 # Project imports
-from identity.paths import get_user_folder
-from identity.manager import (
+from Login_Client.identity.paths import get_user_folder
+from Login_Client.identity.manager import (
     identity_exists,
     generate_keypair,
     save_private_key,
     generate_csr
 )
-from identity.validation import load_ca_cert, validate_cert_with_ca
-from ca.client import fetch_ca_certificate, request_certificate
+from Login_Client.identity.validation import load_ca_cert, validate_cert_with_ca
+from Login_Client.ca.client import fetch_ca_certificate, request_certificate
 
-from auth.login import login_secure
+from Login_Client.auth.login import login_secure
 
 
 def register_flow():
