@@ -1,105 +1,116 @@
-import json
-import base64
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-from Login_Client.timestamp import request_timestamp
+from Blockchain import blockchain_client  # Assumes transaction functions are here
+import datetime
+from Login_Client.identity.wallet_manager import load_wallet
 
 def auction_menu(user_folder, username):
-
     while True:
         print("\n=====================================")
         print("              AUCTION MENU           ")
         print("=====================================")
-        print(f"Logged in as: {username}")
+        print(f"User: {username}")
+
+        try:
+
+            addr = (user_folder / "wallet_address.txt").read_text().strip()
+
+            token_bal = blockchain_client.get_internal_balance(addr)
+
+            print(f"Wallet: {addr}")
+            print(f"Tokens: {token_bal} ETH")
+        except:
+            print("Wallet info unavailable")
+
         print("-------------------------------------")
-        print("1. View All Auctions")
-        print("2. View My Auctions")
-        print("3. Create New Auction")
-        print("4. Make a Bid")
-        print("5. Exit")
+        print("1. View All Auctions (Anonymous)")
+        print("2. Create New Auction")
+        print("3. Make a Bid")
+        print("4. Exit")
         print("-------------------------------------")
 
-        choice = input("Choose an option: ").strip()
+        choice = input("Option: ").strip()
 
-        match choice:
-            case "1":
-                view_all_auctions()
+        if choice == "1":
+            view_all_auctions()
+        elif choice == "2":
+            create_auction(user_folder, username)
+        elif choice == "3":
+            handle_bid(user_folder, username)
+        elif choice == "4":
+            return
+        else:
+            print("Invalid.")
 
-            case "2":
-                view_my_auctions(username)
-
-            case "3":
-                create_auction(username)
-
-            case "4":
-                handle_bid(user_folder)
-
-            case "5":
-                print("Exiting...")
-                return
-
-            case _:
-                print("Invalid option. Please try again.")
 
 def view_all_auctions():
-    print("Fazer função")
+    print("\n--- ACTIVE AUCTIONS ---")
+    try:
+        auctions = blockchain_client.get_all_auctions()
+        if not auctions:
+            print(" [INFO] No auctions found.")
+            return
 
-def view_my_auctions(username):
-    print("Fazer função")
-    
-def create_auction(username):
-    print("Fazer função")
+        print(f"{'ID':<4} | {'Item':<20} | {'Current Bid':<12} | {'Time Left'}")
+        print("-" * 60)
 
-# Melhorar esta função
-def handle_bid(user_folder):
-    
-    print("\n=== Make a Bid ===")
+        now = datetime.datetime.now().timestamp()
 
+        for auc in auctions:
+            if not auc['active']: continue
+
+            time_left = auc['close_date'] - now
+            time_str = f"{int(time_left / 60)} min" if time_left > 0 else "ENDED"
+
+            print(f"{auc['id']:<4} | {auc['description']:<20} | {auc['highest_bid']:<12} | {time_str}")
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+
+def create_auction(user_folder, username):
+    print("\n=== CREATE AUCTION ===")
+
+    desc = input("Item Description: ").strip()
+    duration = input("Duration (minutes): ").strip()
+    min_bid = input("Min Bid (Tokens): ").strip()
+
+    if not desc or not duration or not min_bid: return
+
+    print("\n[SECURITY] Enter wallet password to pay Gas fees.")
+    password = input("Password: ").strip()
+
+    try:
+
+        account = load_wallet(user_folder, password)
+        print(" [Unlocked] Key decrypted.")
+
+        print(" -> Sending to Blockchain...")
+        tx = blockchain_client.create_auction(account, desc, duration, min_bid)
+        print(f" [SUCCESS] Auction created anonymously! Tx: {tx}")
+
+    except ValueError as e:
+        print(f" [ERROR] Password: {e}")
+    except Exception as e:
+        print(f" [ERROR] Blockchain: {e}")
+
+
+def handle_bid(user_folder, username):
+    print("\n=== MAKE A BID ===")
     auction_id = input("Auction ID: ").strip()
-    value = input("Bid Value: ").strip()
+    amount = input("Bid Amount (Tokens): ").strip()
 
+    if not auction_id or not amount: return
 
-    # 1. Build bid object
-    bid = {
-        "auction_id": auction_id,
-        "bid_value": value,
-    }
+    print("\n[SECURITY] Enter wallet password to sign transaction.")
+    password = input("Password: ").strip()
 
-    # 2. JSON bytes
-    bid_bytes = json.dumps(bid, sort_keys=True).encode()
+    try:
+        account = load_wallet(user_folder, password)
+        print(" [Unlocked] Signing...")
 
-    # 3. TSA timestamp request
-    tsa_token = request_timestamp(bid_bytes)
+        tx_hash = blockchain_client.place_bid_on_chain(account, auction_id, amount)
+        print(f" [SUCCESS] Bid recorded! Tx Hash: {tx_hash}")
 
-    # 4. Load private key
-    private_key_path = user_folder / "client_private_key.pem"
-    private_key = serialization.load_pem_private_key(
-        private_key_path.read_bytes(),
-        password=None
-    )
-
-    # 5. Sign the bid
-    signature = private_key.sign(
-        bid_bytes,
-        padding.PSS(
-            mgf=padding.MGF1(hashes.SHA256()),
-            salt_length=padding.PSS.MAX_LENGTH
-        ),
-        hashes.SHA256()
-    )
-    signature_b64 = base64.b64encode(signature).decode()
-
-    # 6. Load certificate
-    cert_pem = (user_folder / "client_cert.pem").read_text()
-
-    # 7. FINAL BID MESSAGE
-    final_bid_message = {
-        "bid": bid,
-        "signature_b64": signature_b64,
-        "certificate_pem": cert_pem,
-        "timestamp_token": tsa_token
-    }
-
-    # For now, just display the signed + timestamped bid
-    print("\n=== FINAL BID MESSAGE ===")
-    print(json.dumps(final_bid_message, indent=2))
+    except ValueError as e:
+        print(f" [SECURITY ERROR] {e}")
+    except Exception as e:
+        print(f" [CONTRACT ERROR] {e}")

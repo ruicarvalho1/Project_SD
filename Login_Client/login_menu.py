@@ -12,12 +12,15 @@ from Login_Client.identity.manager import (
 )
 from Login_Client.identity.validation import load_ca_cert, validate_cert_with_ca
 from Login_Client.ca.client import fetch_ca_certificate, request_certificate
-
 from Login_Client.auth.login import login_secure
+
+# NEW IMPORTS FOR BLOCKCHAIN & WALLET SECURITY
+from Login_Client.identity.wallet_manager import create_encrypted_wallet, save_wallet_file
+from Blockchain import blockchain_client
 
 
 def register_flow():
-    """Handles the REGISTRATION of new users."""
+    """Handles the REGISTRATION of new users (Web2 Identity + Web3 Wallet)."""
     print("\n--- REGISTER NEW ACCOUNT ---")
 
     while True:
@@ -41,6 +44,7 @@ def register_flow():
             if not user_folder.exists():
                 user_folder.mkdir(parents=True)
 
+            print(" -> Generating RSA Identity...")
             private_key = generate_keypair()
             save_private_key(private_key, user_folder / "client_private_key.pem")
             csr_pem = generate_csr(private_key, username)
@@ -59,12 +63,41 @@ def register_flow():
                 shutil.rmtree(user_folder)
                 return None
 
-            # 6. Success - Save
+            # 6. Success - Save Cert
             (user_folder / "client_cert.pem").write_text(client_cert_pem)
-            print(f" [SUCCESS] Account '{username}' registered and keys saved.")
-            return username  # Return username to auto-login or exit
+            print(f" [SUCCESS] Account '{username}' registered with CA.")
+
+
+            # --- PART 2: WEB3 IDENTITY (ETHEREUM WALLET) ---
+            print("\n--- ETHEREUM WALLET SETUP ---")
+            print("Set a password to encrypt your wallet on disk.")
+
+            while True:
+                pw = input("Wallet Password: ").strip()
+                pw_conf = input("Confirm Password: ").strip()
+                if pw == pw_conf and pw:
+                    break
+                print(" [ERROR] Passwords do not match or are empty.")
+
+            print(" -> Creating encrypted vault (Fernet)...")
+            eth_address, encrypted_data = create_encrypted_wallet(pw)
+            save_wallet_file(user_folder, encrypted_data)
+
+            # Save public address to a text file for easy reading
+            (user_folder / "wallet_address.txt").write_text(eth_address)
+
+            print(f" [OK] Wallet created: {eth_address}")
+
+            # --- PART 3: FAUCET (FUNDING) ---
+            print(" -> Requesting initial funds from Bank...")
+            blockchain_client.fund_new_user(eth_address)
+
+            print(f"\n [WELCOME] Registration complete for '{username}'!")
+            return username
 
         except Exception as e:
+            # UNIFIED ERROR HANDLING
+            # If ANY step fails (RSA, CA, Wallet, Faucet), we clean up everything.
             error_msg = str(e)
             if user_folder.exists():
                 shutil.rmtree(user_folder)
@@ -117,9 +150,7 @@ def login_flow():
 
     # 3. Authentication (Secure Handshake)
     try:
-        print(" -> Initiating Secure Challenge-Response...")
-
-
+        # Calls the secure login function that signs the nonce
         if login_secure(username, private_key_path):
             print(f" [SUCCESS] Logged in as: {username}")
             return username

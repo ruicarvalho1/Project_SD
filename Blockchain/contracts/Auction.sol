@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
 import "../interfaces/IAuction.sol";
@@ -7,6 +8,9 @@ contract Auction is IAuction, Balances {
 
     struct AuctionInfo {
         address seller;
+        string description;
+        uint minBid;
+        uint closeDate;
         uint highestBid;
         address highestBidder;
         bool active;
@@ -15,16 +19,29 @@ contract Auction is IAuction, Balances {
     mapping(uint => AuctionInfo) public auctions;
     uint public auctionCount;
 
-    function createAuction() external override returns (uint) {
-        initUser();
+    // EVENTS (Seller is not revealed at creation to keep public anonymity)
+    event AuctionCreated(uint indexed auctionId, string description, uint closeDate, uint minBid);
+    event NewBid(uint indexed auctionId, uint amount);
+    event AuctionEnded(uint indexed auctionId, address winner, uint amount);
 
+    function createAuction(string memory _desc, uint _duration, uint _minBid) external override returns (uint) {
+        initUser(); // Ensures the user has initial balance
         auctionCount++;
+
+        // Sets closing time based on the current block timestamp
+        uint closingTime = block.timestamp + _duration;
+
         auctions[auctionCount] = AuctionInfo({
             seller: msg.sender,
+            description: _desc,
+            minBid: _minBid,
+            closeDate: closingTime,
             highestBid: 0,
             highestBidder: address(0),
             active: true
         });
+
+        emit AuctionCreated(auctionCount, _desc, closingTime, _minBid);
         return auctionCount;
     }
 
@@ -33,31 +50,40 @@ contract Auction is IAuction, Balances {
 
         AuctionInfo storage auction = auctions[auctionId];
 
-        require(auction.active, "Auction ended");
-        require(bidAmount > auction.highestBid, "Bid too low");
+        // 1. Time validations
+        require(auction.active, "Auction already ended");
+        require(block.timestamp < auction.closeDate, "Auction time expired");
+
+        // 2. Bid validations
+        require(bidAmount >= auction.minBid, "Bid below minimum price");
+        require(bidAmount > auction.highestBid, "Bid below current highest");
         require(balances[msg.sender] >= bidAmount, "Insufficient balance");
 
-
+        // 3. Refund previous highest bidder
         if (auction.highestBidder != address(0)) {
             balances[auction.highestBidder] += auction.highestBid;
         }
 
+        // 4. Charge and update
         balances[msg.sender] -= bidAmount;
-
         auction.highestBid = bidAmount;
         auction.highestBidder = msg.sender;
+
+        emit NewBid(auctionId, bidAmount);
     }
 
     function endAuction(uint auctionId) external override {
-        initUser();
-
         AuctionInfo storage auction = auctions[auctionId];
 
-        require(auction.active, "Already closed");
-        require(msg.sender == auction.seller, "Only seller can end");
+        require(msg.sender == auction.seller, "Only the seller can close the auction");
+        require(auction.active, "Auction already closed");
 
         auction.active = false;
 
-        balances[auction.seller] += auction.highestBid;
+        if (auction.highestBid > 0) {
+            balances[auction.seller] += auction.highestBid;
+        }
+
+        emit AuctionEnded(auctionId, auction.highestBidder, auction.highestBid);
     }
 }

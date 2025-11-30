@@ -1,7 +1,23 @@
 {
   "abi": [
     {
-      "inputs": [],
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "_desc",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_duration",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_minBid",
+          "type": "uint256"
+        }
+      ],
       "name": "createAuction",
       "outputs": [
         {
@@ -49,10 +65,10 @@
     "absolutePath": "interfaces/IAuction.sol",
     "exportedSymbols": {
       "IAuction": [
-        19
+        25
       ]
     },
-    "id": 20,
+    "id": 26,
     "nodeType": "SourceUnit",
     "nodes": [
       {
@@ -73,91 +89,63 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "fullyImplemented": false,
-        "id": 19,
+        "id": 25,
         "linearizedBaseContracts": [
-          19
+          25
         ],
         "name": "IAuction",
         "nameLocation": "36:8:0",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
-            "functionSelector": "f5811447",
-            "id": 6,
+            "functionSelector": "2dbddb41",
+            "id": 12,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "createAuction",
-            "nameLocation": "60:13:0",
+            "nameLocation": "61:13:0",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 2,
-              "nodeType": "ParameterList",
-              "parameters": [],
-              "src": "73:2:0"
-            },
-            "returnParameters": {
-              "id": 5,
+              "id": 8,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 4,
+                  "id": 3,
                   "mutability": "mutable",
-                  "name": "",
-                  "nameLocation": "-1:-1:-1",
+                  "name": "_desc",
+                  "nameLocation": "89:5:0",
                   "nodeType": "VariableDeclaration",
-                  "scope": 6,
-                  "src": "94:4:0",
+                  "scope": 12,
+                  "src": "75:19:0",
                   "stateVariable": false,
-                  "storageLocation": "default",
+                  "storageLocation": "memory",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_uint256",
-                    "typeString": "uint256"
+                    "typeIdentifier": "t_string_memory_ptr",
+                    "typeString": "string"
                   },
                   "typeName": {
-                    "id": 3,
-                    "name": "uint",
+                    "id": 2,
+                    "name": "string",
                     "nodeType": "ElementaryTypeName",
-                    "src": "94:4:0",
+                    "src": "75:6:0",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_uint256",
-                      "typeString": "uint256"
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
                     }
                   },
                   "visibility": "internal"
-                }
-              ],
-              "src": "93:6:0"
-            },
-            "scope": 19,
-            "src": "51:49:0",
-            "stateMutability": "nonpayable",
-            "virtual": false,
-            "visibility": "external"
-          },
-          {
-            "functionSelector": "57c90de5",
-            "id": 13,
-            "implemented": false,
-            "kind": "function",
-            "modifiers": [],
-            "name": "placeBid",
-            "nameLocation": "114:8:0",
-            "nodeType": "FunctionDefinition",
-            "parameters": {
-              "id": 11,
-              "nodeType": "ParameterList",
-              "parameters": [
+                },
                 {
                   "constant": false,
-                  "id": 8,
+                  "id": 5,
                   "mutability": "mutable",
-                  "name": "auctionId",
-                  "nameLocation": "128:9:0",
+                  "name": "_duration",
+                  "nameLocation": "101:9:0",
                   "nodeType": "VariableDeclaration",
-                  "scope": 13,
-                  "src": "123:14:0",
+                  "scope": 12,
+                  "src": "96:14:0",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -165,10 +153,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 7,
+                    "id": 4,
                     "name": "uint",
                     "nodeType": "ElementaryTypeName",
-                    "src": "123:4:0",
+                    "src": "96:4:0",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -178,13 +166,47 @@
                 },
                 {
                   "constant": false,
+                  "id": 7,
+                  "mutability": "mutable",
+                  "name": "_minBid",
+                  "nameLocation": "117:7:0",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 12,
+                  "src": "112:12:0",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 6,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "112:4:0",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "74:51:0"
+            },
+            "returnParameters": {
+              "id": 11,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
                   "id": 10,
                   "mutability": "mutable",
-                  "name": "bidAmount",
-                  "nameLocation": "144:9:0",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
                   "nodeType": "VariableDeclaration",
-                  "scope": 13,
-                  "src": "139:14:0",
+                  "scope": 12,
+                  "src": "144:4:0",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -195,7 +217,7 @@
                     "id": 9,
                     "name": "uint",
                     "nodeType": "ElementaryTypeName",
-                    "src": "139:4:0",
+                    "src": "144:4:0",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -204,41 +226,62 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "122:32:0"
+              "src": "143:6:0"
             },
-            "returnParameters": {
-              "id": 12,
-              "nodeType": "ParameterList",
-              "parameters": [],
-              "src": "163:0:0"
-            },
-            "scope": 19,
-            "src": "105:59:0",
+            "scope": 25,
+            "src": "52:98:0",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "functionSelector": "b9a2de3a",
-            "id": 18,
+            "functionSelector": "57c90de5",
+            "id": 19,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
-            "name": "endAuction",
-            "nameLocation": "178:10:0",
+            "name": "placeBid",
+            "nameLocation": "164:8:0",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 16,
+              "id": 17,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 15,
+                  "id": 14,
                   "mutability": "mutable",
                   "name": "auctionId",
+                  "nameLocation": "178:9:0",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 19,
+                  "src": "173:14:0",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 13,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "173:4:0",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 16,
+                  "mutability": "mutable",
+                  "name": "bidAmount",
                   "nameLocation": "194:9:0",
                   "nodeType": "VariableDeclaration",
-                  "scope": 18,
+                  "scope": 19,
                   "src": "189:14:0",
                   "stateVariable": false,
                   "storageLocation": "default",
@@ -247,7 +290,7 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 14,
+                    "id": 15,
                     "name": "uint",
                     "nodeType": "ElementaryTypeName",
                     "src": "189:4:0",
@@ -259,36 +302,91 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "188:16:0"
+              "src": "172:32:0"
             },
             "returnParameters": {
-              "id": 17,
+              "id": 18,
               "nodeType": "ParameterList",
               "parameters": [],
               "src": "213:0:0"
             },
-            "scope": 19,
-            "src": "169:45:0",
+            "scope": 25,
+            "src": "155:59:0",
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "functionSelector": "b9a2de3a",
+            "id": 24,
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "endAuction",
+            "nameLocation": "228:10:0",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 22,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 21,
+                  "mutability": "mutable",
+                  "name": "auctionId",
+                  "nameLocation": "244:9:0",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 24,
+                  "src": "239:14:0",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 20,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "239:4:0",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "238:16:0"
+            },
+            "returnParameters": {
+              "id": 23,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "263:0:0"
+            },
+            "scope": 25,
+            "src": "219:45:0",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 20,
-        "src": "26:190:0",
+        "scope": 26,
+        "src": "26:240:0",
         "usedErrors": [],
         "usedEvents": []
       }
     ],
-    "src": "0:217:0"
+    "src": "0:267:0"
   },
   "contractName": "IAuction",
   "dependencies": [],
   "offset": [
     26,
-    216
+    266
   ],
-  "sha1": "8f8b23cde56c51750e2794613aefc08a2a594cd9",
-  "source": "pragma solidity ^0.8.10;\n\ninterface IAuction {\n    function createAuction() external returns (uint);\n    function placeBid(uint auctionId, uint bidAmount) external;\n    function endAuction(uint auctionId) external;\n}\n",
+  "sha1": "cdfc8eed446812ec359c1c7d8d3160949a86fdde",
+  "source": "pragma solidity ^0.8.10;\n\ninterface IAuction {\n\n    function createAuction(string memory _desc, uint _duration, uint _minBid) external returns (uint);\n    function placeBid(uint auctionId, uint bidAmount) external;\n    function endAuction(uint auctionId) external;\n}\n",
   "type": "interface"
 }
