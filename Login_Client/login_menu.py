@@ -90,12 +90,11 @@ def register_flow():
             print(" -> Requesting initial funds from Bank...")
             blockchain_client.fund_new_user(eth_address)
 
-            print(f"\n [WELCOME] Registration complete for '{username}'!")
-            return username
+            print(" -> Please select option 2 to LOGIN with your new account.")
+            return None
 
         except Exception as e:
-            # UNIFIED ERROR HANDLING
-            # If ANY step fails (RSA, CA, Wallet, Faucet), we clean up everything.
+
             error_msg = str(e)
             if user_folder.exists():
                 shutil.rmtree(user_folder)
@@ -171,9 +170,9 @@ def authentication_menu():
         choice = input("\nSelect an option (1-3): ").strip()
 
         if choice == '1':
-            user = register_flow()
-            if user:
-                return user  # Successful registration -> Enter App
+
+            register_flow()
+
         elif choice == '2':
             user = login_flow()
             if user:
