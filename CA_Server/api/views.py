@@ -30,11 +30,19 @@ def store_user_certificate(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+
+
+@csrf_exempt
 def get_user_certificate(request):
-    if request.method != "GET":
-        return JsonResponse({"error": "Only GET allowed"}, status=405)
+
+    if request.method != "POST":
+        return JsonResponse({"error": "Only POST allowed for privacy"}, status=405)
+
     try:
-        username = request.GET.get("username")
+
+        data = json.loads(request.body)
+        username = data.get("username")
+
         if not username:
             return JsonResponse({"error": "Missing username"}, status=400)
 
@@ -49,6 +57,8 @@ def get_user_certificate(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+
+# -----------------------------------------
 
 
 @csrf_exempt
@@ -65,6 +75,7 @@ def store_ca_certificate(request):
         if not ca_cert or not serial:
             return JsonResponse({"error": "Missing fields"}, status=400)
 
+        # Garante que só existe 1 CA ativa
         CACertificate.objects.all().delete()
 
         CACertificate.objects.create(
@@ -75,6 +86,29 @@ def store_ca_certificate(request):
         return JsonResponse({"status": "ok"})
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def get_ca_certificate(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Only POST allowed"}, status=405)
+
+    try:
+
+        ca = CACertificate.objects.last()
+        if not ca:
+            return JsonResponse({"error": "No CA found"}, status=404)
+
+        return JsonResponse({
+            "certificate_pem": ca.ca_cert,
+            "serial_number": ca.serial_number
+        })
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+# -----------------------------------------
+
 
 @csrf_exempt
 def check_user_exists(request):

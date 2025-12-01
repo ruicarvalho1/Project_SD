@@ -1,54 +1,73 @@
 import requests
-from .config import DJANGO_API_URL
 from cryptography import x509
+from .config import DJANGO_API_URL
+
 
 def fetch_ca_cert():
-    """Broadcast request to Django to fetch the current CA certificate."""
+    """
+    Fetches the CA certificate from Django.
+    Uses POST to match the privacy-focused architecture (even with empty body).
+    """
     try:
-        r = requests.get(f"{DJANGO_API_URL}/get_ca_cert/", timeout=2)
+
+        r = requests.post(f"{DJANGO_API_URL}/get_ca_cert/", json={}, timeout=2)
+
         if r.status_code == 200:
             data = r.json()
             return data.get("certificate_pem")
+
     except Exception as e:
         print(f" [WARN] Could not fetch from Django: {e}")
     return None
 
+
 def publish_ca_cert(cert_pem, serial):
-    """Send the CA certificate to Django for storage/replacement."""
+    """
+    Uploads the new CA certificate to Django.
+    """
     try:
         requests.post(
             f"{DJANGO_API_URL}/storeca/",
-            json={"certificate_pem": cert_pem, "serial_number": serial, "action": "replace"},
+            json={
+                "certificate_pem": cert_pem,
+                "serial_number": serial,
+                "action": "replace"
+            },
             timeout=3
         )
     except Exception as e:
         print(f" [ERROR] Failed to push cert to Django: {e}")
 
+
 def publish_user_cert(username, cert_pem, serial):
-    """Send a user certificate to Django for storage."""
+    """
+    Uploads the signed user certificate to Django.
+    """
     return requests.post(
         f"{DJANGO_API_URL}/store/",
-        json={"username": username, "certificate_pem": cert_pem, "serial_number": serial},
+        json={
+            "username": username,
+            "certificate_pem": cert_pem,
+            "serial_number": serial
+        },
         timeout=3
     )
 
 
 def check_username_availability(username):
     """
-Checks in Django whether the user already exists.
-Returns False if the user EXISTS (username is taken).
-Returns True if the username is available.
-"""
+    Checks if the user already exists.
+    PRIVACY NOTE: Uses POST to avoid leaking the username in server logs/URL.
+    """
     try:
-        r = requests.get(
+        r = requests.post(
             f"{DJANGO_API_URL}/check_user/",
-            params={"username": username},
+            json={"username": username},
             timeout=2
         )
 
         if r.status_code == 200:
             data = r.json()
-            # Se exists for True, user exist
             if data.get('exists') is True:
                 return False
             return True
@@ -62,13 +81,13 @@ Returns True if the username is available.
 
 def get_trusted_user_cert(username):
     """
-Fetches a user's certificate from Django by username.
+    Fetches the official trusted public certificate from Django.
+    Used during login verification to ensure the user is legitimate.
     """
     try:
-
-        response = requests.get(
+        response = requests.post(
             f"{DJANGO_API_URL}/get_user_cert/",
-            params={"username": username},
+            json={"username": username},
             timeout=3
         )
 
@@ -79,6 +98,6 @@ Fetches a user's certificate from Django by username.
                 return x509.load_pem_x509_certificate(cert_pem.encode())
 
     except Exception as e:
+        print(f" [ERROR] Failed to contact Django for cert of {username}: {e}")
 
-        print(f" [ERROR] Failed to contact Django to fetch certificate for {username}: {e}")
     return None

@@ -7,5 +7,5 @@ urlpatterns = [
     path("store/", store_user_certificate),
     path("storeca/", store_ca_certificate),
     path('check_user/', check_user_exists, name='check_user'),
-    path('get_user_cert/', get_user_certificate, name='get_user_cert'),
+    path('get_user_cert/',get_user_certificate, name='get_user_cert'),
 ]
