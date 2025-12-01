@@ -2,7 +2,6 @@ import sys
 import shutil
 from pathlib import Path
 
-# Project imports
 from Login_Client.identity.paths import get_user_folder
 from Login_Client.identity.manager import (
     identity_exists,
@@ -14,7 +13,6 @@ from Login_Client.identity.validation import load_ca_cert, validate_cert_with_ca
 from Login_Client.ca.client import fetch_ca_certificate, request_certificate
 from Login_Client.auth.login import login_secure
 
-# NEW IMPORTS FOR BLOCKCHAIN & WALLET SECURITY
 from Login_Client.identity.wallet_manager import create_encrypted_wallet, save_wallet_file
 from Blockchain import blockchain_client
 

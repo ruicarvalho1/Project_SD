@@ -8,11 +8,9 @@ from pathlib import Path
 RPC_URL = "http://127.0.0.1:7545"
 web3 = Web3(Web3.HTTPProvider(RPC_URL))
 
-# Paths
 BASE_DIR = Path(__file__).parent.parent
 ABI_PATH = BASE_DIR / "Blockchain" / "build" / "contracts" / "Auction.json"
 
-# UPDATE THIS ADDRESS AFTER DEPLOY!
 CONTRACT_ADDRESS = "0x3683E1814b071A9411F79eF9ca16fe30d49613fD"
 
 contract = None
@@ -47,7 +45,6 @@ def get_internal_balance(address):
         return 0
 
 
-# --- HELPER: SAFE TRANSACTION SIGNER (A CORREÇÃO) ---
 def _send_signed_transaction(tx, private_key):
     """
     Helper to handle version conflicts between Brownie/Web3.py.
