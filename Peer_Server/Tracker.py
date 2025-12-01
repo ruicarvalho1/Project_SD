@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 import time
+from django_client_peer import *
 
 app = Flask(__name__)
 
@@ -11,17 +12,14 @@ peers = {}  # dict: peer_id -> {host, port, last_seen}
 def register_peer():
     data = request.json
     peer_id = data["peer_id"]
+    host = data["host"]
+    port = data["port"]
 
-    peers[peer_id] = {
-        "host": data["host"],
-        "port": data["port"],
-        "last_seen": time.time()
-    }
+    # Save peer directly in Django DB
+    publish_peer(peer_id, host, port, time.time())
 
-    print(f"[+] Peer registado: {peer_id} — {data['host']}:{data['port']}")
-
+    print(f"[+] Peer registado: {peer_id} — {host}:{port}")
     return jsonify({"status": "ok"}), 200
-
 
 @app.route("/peers", methods=["GET"])
 def get_peers():
