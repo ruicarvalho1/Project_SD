@@ -1,5 +1,7 @@
 import sys
 import shutil
+import requests
+import random
 from pathlib import Path
 
 from Login_Client.identity.paths import get_user_folder
@@ -18,7 +20,7 @@ from Blockchain import blockchain_client
 
 
 def register_flow():
-    """Handles the REGISTRATION of new users (Web2 Identity + Web3 Wallet)."""
+    """Handles the registration of a new user identity and wallet creation."""
     print("\n--- REGISTER NEW ACCOUNT ---")
 
     while True:
@@ -29,86 +31,86 @@ def register_flow():
 
         user_folder = get_user_folder(username)
 
-        # 1. Protection: Check if local identity already exists
+        # Ensure local identity does not already exist
         if identity_exists(user_folder):
-            print(f" [!] Local identity for '{username}' already exists.")
-            print("     Please use the LOGIN option in the main menu.")
+            print(f" Local identity for '{username}' already exists.")
+            print(" Use the LOGIN option instead.")
             return None
 
-        print(f" -> Checking availability for '{username}'...")
+        print(f" Checking availability for '{username}'...")
 
         try:
-            # 2. Generate temporary keys
+            # Create user directory
             if not user_folder.exists():
                 user_folder.mkdir(parents=True)
 
-            print(" -> Generating RSA Identity...")
+            # Generate RSA keypair and CSR
+            print(" Generating RSA identity...")
             private_key = generate_keypair()
             save_private_key(private_key, user_folder / "client_private_key.pem")
             csr_pem = generate_csr(private_key, username)
 
-            # 3. Fetch CA Certificate
+            # Fetch Certificate Authority certificate
             ca_pem = fetch_ca_certificate()
             (user_folder / "ca_cert.pem").write_text(ca_pem)
             ca_cert = load_ca_cert(user_folder / "ca_cert.pem")
 
-            # 4. Request Certificate from Server
+            # Request signed certificate from the server
             client_cert_pem = request_certificate(csr_pem)
 
-            # 5. Validate Integrity
+            # Validate certificate returned by server
             if not validate_cert_with_ca(client_cert_pem, ca_cert):
-                print(" [FATAL] Server returned an invalid certificate!")
+                print(" Server returned an invalid certificate.")
                 shutil.rmtree(user_folder)
                 return None
 
-            # 6. Success - Save Cert
+            # Save valid client certificate
             (user_folder / "client_cert.pem").write_text(client_cert_pem)
-            print(f" [SUCCESS] Account '{username}' registered with CA.")
+            print(f" Account '{username}' successfully registered.")
 
-
-            # --- PART 2: WEB3 IDENTITY (ETHEREUM WALLET) ---
+            # Web3 wallet setup
             print("\n--- ETHEREUM WALLET SETUP ---")
-            print("Set a password to encrypt your wallet on disk.")
+            print("Choose a password to encrypt your wallet.")
 
             while True:
                 pw = input("Wallet Password: ").strip()
                 pw_conf = input("Confirm Password: ").strip()
                 if pw == pw_conf and pw:
                     break
-                print(" [ERROR] Passwords do not match or are empty.")
+                print(" Passwords do not match or are empty.")
 
-            print(" -> Creating encrypted vault (Fernet)...")
+            # Create encrypted Ethereum wallet
+            print(" Creating encrypted wallet...")
             eth_address, encrypted_data = create_encrypted_wallet(pw)
             save_wallet_file(user_folder, encrypted_data)
-
-            # Save public address to a text file for easy reading
             (user_folder / "wallet_address.txt").write_text(eth_address)
 
-            print(f" [OK] Wallet created: {eth_address}")
+            print(f" Wallet created: {eth_address}")
 
-            # --- PART 3: FAUCET (FUNDING) ---
-            print(" -> Requesting initial funds from Bank...")
+            # Request initial blockchain funds for the new wallet
+            print(" Requesting initial blockchain funds...")
             blockchain_client.fund_new_user(eth_address)
 
-            print(" -> Please select option 2 to LOGIN with your new account.")
+            print(" Registration complete. Please choose LOGIN in the main menu.")
             return None
 
         except Exception as e:
-
             error_msg = str(e)
+
+            # Cleanup invalid folder
             if user_folder.exists():
                 shutil.rmtree(user_folder)
 
             if "already exists" in error_msg or "duplicate" in error_msg:
-                print(f" [ERROR] Username '{username}' is already taken on the server.")
-                print(" -> Please try a different name.\n")
+                print(f" Username '{username}' is already taken on the server.")
+                print(" Try a different name.\n")
             else:
-                print(f" [ERROR] Registration failed: {e}")
+                print(f" Registration failed: {e}")
                 return None
 
 
 def login_flow():
-    """Handles LOGIN with Challenge-Response (requires Private Key)."""
+    """Handles login through challenge-response authentication and P2P registration."""
     print("\n--- LOGIN ---")
 
     username = input("Username: ").strip()
@@ -119,21 +121,20 @@ def login_flow():
     default_cert_path = user_folder / "client_cert.pem"
     cert_path = None
 
-    # 1. Try to find certificate in the default folder
+    # Load user certificate
     if default_cert_path.exists():
         cert_path = default_cert_path
-        print(f" -> Certificate found at: {cert_path}")
+        print(f" Certificate found at: {cert_path}")
     else:
-        # 2. If not found, ASK FOR THE DIRECTORY/FILE
-        print(f" [!] Certificate not found in {user_folder}")
-        custom_path = input("Enter the full path to the .pem file: ").strip()
+        print(f" Certificate not found in {user_folder}")
+        custom_path = input("Enter full path to your certificate (.pem): ").strip()
 
         if custom_path:
             p = Path(custom_path)
             if p.exists() and p.is_file():
                 cert_path = p
             else:
-                print(" [ERROR] File not found.")
+                print(" Certificate file not found.")
                 return None
         else:
             return None
@@ -141,27 +142,61 @@ def login_flow():
     private_key_path = cert_path.parent / "client_private_key.pem"
 
     if not private_key_path.exists():
-        print(f" [ERROR] Private Key not found at: {private_key_path}")
-        print("         You cannot prove your identity without the private key.")
+        print(f" Private key not found at: {private_key_path}")
+        print(" Login is not possible without the private key.")
         return None
 
-    # 3. Authentication (Secure Handshake)
+    # Authentication
     try:
-        # Calls the secure login function that signs the nonce
-        if login_secure(username, private_key_path):
-            print(f" [SUCCESS] Logged in as: {username}")
-            return username
+        token = login_secure(username, private_key_path)
+
+        if token:
+            print(f" Logged in as: {username}")
+
+            # Random port for P2P node
+            MY_P2P_PORT = random.randint(6000, 6999)
+            print(f" Starting P2P listener on port {MY_P2P_PORT}...")
+
+            # Start P2P background node
+            try:
+                from p2p_node import start_background_node
+                start_background_node(MY_P2P_PORT)
+            except ImportError:
+                print(" p2p_node.py not found. Peer will operate passively.")
+            except Exception as e:
+                print(f" Failed to start P2P listener: {e}")
+                return None
+
+            # Register peer in tracker
+            print(" Connecting to P2P Tracker...")
+            try:
+                tracker_response = requests.post(
+                    "http://127.0.0.1:5555/register",
+                    json={"token": token, "port": MY_P2P_PORT}
+                )
+
+                if tracker_response.status_code == 200:
+                    ip = tracker_response.json().get('your_ip')
+                    print(f" Connected to P2P Network at {ip}:{MY_P2P_PORT}")
+                    return username
+                else:
+                    print(f" Tracker rejected registration: {tracker_response.text}")
+                    return None
+
+            except requests.exceptions.ConnectionError:
+                print(" Tracker is offline. Ensure Tracker.py is running.")
+                return None
 
     except Exception as e:
-        print(f" [ERROR] Login failed: {e}")
+        print(f" Login failed: {e}")
         return None
 
 
 def authentication_menu():
-    """Main Entry Menu."""
+    """Main entry menu for user authentication."""
     while True:
         print("\n==============================")
-        print("      SECURE AUCTION CLIENT    ")
+        print("      SECURE AUCTION CLIENT   ")
         print("==============================")
         print("1. Register (New User)")
         print("2. Login (Existing User)")
@@ -170,15 +205,16 @@ def authentication_menu():
         choice = input("\nSelect an option (1-3): ").strip()
 
         if choice == '1':
-
             register_flow()
 
         elif choice == '2':
             user = login_flow()
             if user:
-                return user  # Successful login -> Enter App
+                return user
+
         elif choice == '3':
             print("Exiting...")
             sys.exit(0)
+
         else:
             print("Invalid option.")

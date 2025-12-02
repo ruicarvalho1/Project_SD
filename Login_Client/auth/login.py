@@ -3,7 +3,8 @@ import base64
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
-AUTH_URL = "http://127.0.0.1:6001"
+# URL da API do Django
+AUTH_URL = "http://127.0.0.1:8000/api"
 
 
 def login_secure(username, private_key_path):
@@ -14,9 +15,8 @@ def login_secure(username, private_key_path):
 
     # --- PHASE 1: REQUEST CHALLENGE ---
     try:
-        # Request a random nonce to prevent Replay Attacks
         print(" [AUTH] Step 1: Requesting challenge...")
-        r = requests.post(f"{AUTH_URL}/auth/challenge", json={"username": username})
+        r = requests.post(f"{AUTH_URL}/challenge", json={"username": username})
         r.raise_for_status()
 
         nonce = base64.b64decode(r.json()['nonce'])
@@ -33,13 +33,10 @@ def login_secure(username, private_key_path):
         with open(private_key_path, "rb") as f:
             key = serialization.load_pem_private_key(f.read(), password=None)
 
-        # PSS Padding is mandatory for security compliance
+        # Usar PKCS1v15 para bater certo com o Django
         signature = key.sign(
             nonce,
-            padding.PSS(
-                mgf=padding.MGF1(hashes.SHA256()),
-                salt_length=padding.PSS.MAX_LENGTH
-            ),
+            padding.PKCS1v15(),
             hashes.SHA256()
         )
 
@@ -54,14 +51,26 @@ def login_secure(username, private_key_path):
     try:
         print(" [AUTH] Step 3: Sending proof to server...")
 
-        r = requests.post(f"{AUTH_URL}/auth/login", json={
+        r = requests.post(f"{AUTH_URL}/login_secure", json={
             "username": username,
             "signature": sig_b64
         })
 
         if r.status_code == 200:
             print(" [SUCCESS] Signature verified. Access Granted!")
-            return True
+
+            data = r.json()
+            token = data.get("token")
+
+            if not token:
+                raise Exception("Login OK but no Token received!")
+
+            print("-" * 50)
+            print(f" [TOKEN] JWT RECEBIDO DO CA SERVER:")
+            print(f" {token}")
+            print("-" * 50)
+
+            return token
         else:
             error_msg = r.json().get('error', r.text)
             print(f" [FAILURE] Access Denied: {error_msg}")
