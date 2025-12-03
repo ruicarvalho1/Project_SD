@@ -1,8 +1,7 @@
 import datetime
 from Blockchain import blockchain_client
 
-
-def display_auction_header(auction_id):
+def display_auction_header(auction_id, wallet_address):
     try:
         all_auctions = blockchain_client.get_all_auctions()
         target_auction = next(
@@ -18,12 +17,15 @@ def display_auction_header(auction_id):
         time_left = target_auction["close_date"] - now
         time_str = f"{int(time_left / 60)} min" if time_left > 0 else "ENDED"
 
+        balance = blockchain_client.get_internal_balance(wallet_address)
+
         print("\n" + "=" * 60)
         print(f"         LIVE AUCTION ROOM #{auction_id}          ")
         print("=" * 60)
         print(f" ITEM:        {target_auction.get('description', 'N/A')}")
         print(f" CURRENT BID: {target_auction.get('highest_bid', 0)} ETH")
         print(f" TIME LEFT:   {time_str}")
+        print(f" BALANCE:     {balance} ETH")
         print("-" * 60)
         print(" Auto-refresh enabled | Type bid amount or 'EXIT' to leave")
         print("-" * 60)

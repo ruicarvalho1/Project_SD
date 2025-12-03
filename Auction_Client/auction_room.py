@@ -7,43 +7,50 @@ from .auction_utils import broadcast_to_peers, signal_refresh, NEEDS_REFRESH
 
 
 def enter_auction_room(user_folder, username, auction_id, p2p_client):
-    print("\n Wallet unlock required.")
+    """
+    Live Auction Room.
+    Displays ongoing updates and allows instant bidding.
+    Runs until the user types 'EXIT'.
+    """
+    print("\n [SETUP] Wallet unlock required to join and bid without repeated prompts.")
     password = input(" Wallet Password: ").strip()
 
     try:
         account = load_wallet(user_folder, password)
-        print(" Wallet unlocked.")
+        print(" Wallet unlocked. Ready to bid.")
     except Exception:
-        print(" Invalid password.")
+        print(" Invalid password. Returning to menu.")
         return
+
+    wallet_address = account.address
 
     try:
         p2p_client.set_refresh_callback(signal_refresh)
     except AttributeError:
-        print("[WARNING] P2P client does not support refresh callbacks.")
+        print("[WARNING] Falha ao ligar o auto-refresh. O cliente P2P precisa da função set_refresh_callback.")
 
-    global NEEDS_REFRESH
 
     while True:
-        if not display_auction_header(auction_id):
-            break
 
-        NEEDS_REFRESH = False
-
-        bid_amount = input_with_timeout(
-            " Enter bid amount ('R' refresh / 'EXIT' leave): ",
-            timeout=4.0
-        )
-
-        if bid_amount is None:
-            if NEEDS_REFRESH:
-                print(" New bid detected. Refreshing...")
+        global NEEDS_REFRESH
+        if NEEDS_REFRESH:
+            print("\n" + "=" * 60)
+            print(" [SINCRONIZAÇÃO] Recarregando dados após notificação...")
+            NEEDS_REFRESH = False
+            time.sleep(0.1)
             continue
 
-        bid_amount = bid_amount.strip().upper()
+        # 2. Redesenhar o Cabeçalho (CORREÇÃO DE CHAMADA AQUI)
+        # Passamos o address para a função de display:
+        if not display_auction_header(auction_id, wallet_address): # <--- ADICIONADO: wallet_address
+            break
+
+        # User input for bidding or refreshing
+        bid_amount = input(
+            " Enter bid amount ('R' refresh / 'EXIT' leave room): "
+        ).strip().upper()
 
         if bid_amount == "EXIT":
-            print(" Leaving auction room...")
             break
         elif bid_amount == "R":
             continue
@@ -51,17 +58,12 @@ def enter_auction_room(user_folder, username, auction_id, p2p_client):
             continue
 
         try:
+
             tx_hash = blockchain_client.place_bid_on_chain(
                 account, auction_id, bid_amount
             )
             print(f" Bid accepted. Tx: {tx_hash}")
 
-            payload = {
-                "auction_id": auction_id,
-                "amount": bid_amount,
-                "tx_hash": str(tx_hash)
-            }
-            broadcast_to_peers("NEW_BID", payload, exclude_user=username)
             time.sleep(1)
 
         except ValueError as e:
