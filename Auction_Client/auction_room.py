@@ -8,11 +8,11 @@ from .auction_utils import broadcast_to_peers, signal_refresh, NEEDS_REFRESH
 
 def enter_auction_room(user_folder, username, auction_id, p2p_client):
     """
-    Live Auction Room.
-    Displays ongoing updates and allows instant bidding.
-    Runs until the user types 'EXIT'.
+    Live auction session.
+    Shows real-time updates and allows instant bidding.
+    Ends when the user types 'EXIT'.
     """
-    print("\n [SETUP] Wallet unlock required to join and bid without repeated prompts.")
+    print("\n Wallet unlock required to join and bid.")
     password = input(" Wallet Password: ").strip()
 
     try:
@@ -25,50 +25,67 @@ def enter_auction_room(user_folder, username, auction_id, p2p_client):
     wallet_address = account.address
 
     try:
+        # Register callback so P2P events trigger a refresh
         p2p_client.set_refresh_callback(signal_refresh)
     except AttributeError:
-        print("[WARNING] Falha ao ligar o auto-refresh. O cliente P2P precisa da função set_refresh_callback.")
+        print("[WARNING] P2P client missing set_refresh_callback")
 
+    global NEEDS_REFRESH
 
     while True:
 
-        global NEEDS_REFRESH
+        # Auto-refresh on P2P event
         if NEEDS_REFRESH:
             print("\n" + "=" * 60)
-            print(" [SINCRONIZAÇÃO] Recarregando dados após notificação...")
+            print(" Sync event detected. Reloading auction data...")
             NEEDS_REFRESH = False
             time.sleep(0.1)
             continue
 
-        # 2. Redesenhar o Cabeçalho (CORREÇÃO DE CHAMADA AQUI)
-        # Passamos o address para a função de display:
-        if not display_auction_header(auction_id, wallet_address): # <--- ADICIONADO: wallet_address
+        # Draw header UI
+        if not display_auction_header(auction_id, wallet_address):
             break
 
-        # User input for bidding or refreshing
-        bid_amount = input(
-            " Enter bid amount ('R' refresh / 'EXIT' leave room): "
-        ).strip().upper()
+        # Non-blocking input (timeout ensures UI keeps updating)
+        bid_amount = input_with_timeout(
+            " Enter bid ('R' refresh / 'EXIT' leave): ",
+            timeout=4.0
+        )
 
-        if bid_amount == "EXIT":
+        # Timeout returns None
+        if bid_amount is None:
+            continue
+
+        bid_amount = bid_amount.strip().upper()
+
+        if bid_amount == "EXIT" or bid_amount == "E":
+            print(" Leaving auction room...")
             break
         elif bid_amount == "R":
             continue
-        elif not bid_amount:
+        elif not bid_amount.isdigit():
+            print("Invalid action. Enter a numeric value, 'R', or 'EXIT'.")
             continue
 
+        # Submit bid and broadcast event
         try:
-
             tx_hash = blockchain_client.place_bid_on_chain(
                 account, auction_id, bid_amount
             )
             print(f" Bid accepted. Tx: {tx_hash}")
 
+            payload = {
+                "auction_id": auction_id,
+                "amount": bid_amount,
+                "tx_hash": str(tx_hash)
+            }
+
+            broadcast_to_peers("NEW_BID", payload, exclude_user=username)
             time.sleep(1)
 
         except ValueError as e:
-            print(f" Invalid bid or insufficient balance: {e}")
+            print(f" Invalid bid: {e}")
             time.sleep(2)
         except Exception as e:
-            print(f" [CONTRACT ERROR] {e}")
+            print(f" Contract error: {e}")
             time.sleep(3)
