@@ -9,7 +9,7 @@ web3 = Web3(Web3.HTTPProvider(RPC_URL))
 
 BASE_DIR = Path(__file__).parent.parent
 ABI_PATH = BASE_DIR / "Blockchain" / "build" / "contracts" / "Auction.json"
-CONTRACT_ADDRESS = "0x3683E1814b071A9411F79eF9ca16fe30d49613fD"
+CONTRACT_ADDRESS = "0x43d0df481a09A2ad80641373CE95F2a32EcDB48C"
 
 contract = None
 BANK_ACCOUNT = web3.eth.accounts[0] if web3.is_connected() else None

@@ -50,9 +50,11 @@ contract Auction is IAuction, Balances {
 
         AuctionInfo storage auction = auctions[auctionId];
 
+
         // 1. Time validations
         require(auction.active, "Auction already ended");
         require(block.timestamp < auction.closeDate, "Auction time expired");
+        require(msg.sender != auction.seller, "Seller cannot bid on own auction.");
 
         // 2. Bid validations
         require(bidAmount >= auction.minBid, "Bid below minimum price");

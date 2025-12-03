@@ -27,7 +27,7 @@ def display_auction_header(auction_id, wallet_address):
         print(f" TIME LEFT:   {time_str}")
         print(f" BALANCE:     {balance} ETH")
         print("-" * 60)
-        print(" Auto-refresh enabled | Type bid amount or 'EXIT' to leave")
+        print(" Auto-refresh enabled | Type bid amount or 'E' to leave")
         print("-" * 60)
 
         return True

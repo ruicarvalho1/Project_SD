@@ -58,13 +58,13 @@ def enter_auction_room(user_folder, username, auction_id, p2p_client):
 
         bid_amount = bid_amount.strip().upper()
 
-        if bid_amount == "EXIT" or bid_amount == "E":
+        if bid_amount == "E" or bid_amount == "E":
             print(" Leaving auction room...")
             break
         elif bid_amount == "R":
             continue
         elif not bid_amount.isdigit():
-            print("Invalid action. Enter a numeric value, 'R', or 'EXIT'.")
+            print("Invalid action. Enter a numeric value, 'R', or 'E(exit)'.")
             continue
 
         # Submit bid and broadcast event
