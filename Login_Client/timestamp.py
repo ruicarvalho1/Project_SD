@@ -1,4 +1,3 @@
-# tsa_test_client.py
 import base64
 import hashlib
 import requests

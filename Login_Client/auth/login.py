@@ -33,7 +33,6 @@ def login_secure(username, private_key_path):
         with open(private_key_path, "rb") as f:
             key = serialization.load_pem_private_key(f.read(), password=None)
 
-        # Usar PKCS1v15 para bater certo com o Django
         signature = key.sign(
             nonce,
             padding.PKCS1v15(),
@@ -66,7 +65,7 @@ def login_secure(username, private_key_path):
                 raise Exception("Login OK but no Token received!")
 
             print("-" * 50)
-            print(f" [TOKEN] JWT RECEBIDO DO CA SERVER:")
+            print(f" [TOKEN] JWT RECEIVED FROM CA SERVER:")
             print(f" {token}")
             print("-" * 50)
 

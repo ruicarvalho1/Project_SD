@@ -1,0 +1,35 @@
+import datetime
+from Blockchain import blockchain_client
+
+
+def display_auction_header(auction_id):
+    try:
+        all_auctions = blockchain_client.get_all_auctions()
+        target_auction = next(
+            (a for a in all_auctions if str(a["id"]) == str(auction_id)),
+            None
+        )
+
+        if not target_auction or not target_auction.get("active"):
+            print(" [INFO] Auction ended or does not exist.")
+            return False
+
+        now = datetime.datetime.now().timestamp()
+        time_left = target_auction["close_date"] - now
+        time_str = f"{int(time_left / 60)} min" if time_left > 0 else "ENDED"
+
+        print("\n" + "=" * 60)
+        print(f"         LIVE AUCTION ROOM #{auction_id}          ")
+        print("=" * 60)
+        print(f" ITEM:        {target_auction.get('description', 'N/A')}")
+        print(f" CURRENT BID: {target_auction.get('highest_bid', 0)} ETH")
+        print(f" TIME LEFT:   {time_str}")
+        print("-" * 60)
+        print(" Auto-refresh enabled | Type bid amount or 'EXIT' to leave")
+        print("-" * 60)
+
+        return True
+
+    except Exception as e:
+        print(f" [SYNC ERROR] {e}")
+        return False
