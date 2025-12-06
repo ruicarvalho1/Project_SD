@@ -1,4 +1,3 @@
-# state.py
 import time
 import os
 import json
@@ -18,16 +17,28 @@ AUCTION_LEADERS = {}
 
 
 def load_auction_leaders():
+
+    print(f"[TRACKER] Loading auction leaders from: {LEADER_FILE}")
+
     global AUCTION_LEADERS
+
+    AUCTION_LEADERS.clear()
+
     if not os.path.exists(LEADER_FILE):
-        AUCTION_LEADERS = {}
+        print("[TRACKER] Leader file does not exist, using empty dict")
         return
+
     try:
         with open(LEADER_FILE, "r") as f:
-            AUCTION_LEADERS = json.load(f)
+            data = json.load(f)
+            if isinstance(data, dict):
+                AUCTION_LEADERS.update(data)
+                print(f"[TRACKER] Loaded leaders: {AUCTION_LEADERS}")
+            else:
+                print("[TRACKER] Leader file is not a dict, ignoring.")
     except Exception as e:
         print(f"[TRACKER] Failed to load auction leaders: {e}")
-        AUCTION_LEADERS = {}
+        AUCTION_LEADERS.clear()
 
 
 def save_auction_leaders():

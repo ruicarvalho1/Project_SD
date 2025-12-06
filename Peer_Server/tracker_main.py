@@ -1,4 +1,3 @@
-# tracker_main.py
 from flask import Flask
 from flask_socketio import SocketIO
 from auth_utils import fetch_ca_public_key

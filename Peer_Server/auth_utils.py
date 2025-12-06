@@ -1,4 +1,3 @@
-# auth_utils.py
 import jwt
 import requests
 from cryptography.x509 import load_pem_x509_certificate

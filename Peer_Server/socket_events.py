@@ -1,4 +1,3 @@
-# socket_events.py
 from flask import request
 from flask_socketio import emit, disconnect
 from auth_utils import validate_token
