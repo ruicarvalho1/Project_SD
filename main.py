@@ -3,14 +3,11 @@ from Login_Client.login_menu import authentication_menu
 from Auction_Client.auction_menu import auction_menu
 from Login_Client.identity.paths import get_user_folder
 
-P2P_CLIENT_INSTANCE = None
-
 
 def main():
     print("\n--- STARTING CLIENT (ROOT CONTEXT) ---")
 
-    # 1. Authentication (Login/Register)
-    username = authentication_menu()
+    username, p2p_client = authentication_menu()
 
     if username:
         print("\n" + "=" * 50)
@@ -19,7 +16,7 @@ def main():
 
         user_folder = get_user_folder(username)
 
-        auction_menu(user_folder, username, P2P_CLIENT_INSTANCE)
+        auction_menu(user_folder, username, p2p_client)
 
     else:
         print("\n [INFO] Operation cancelled or login failed.")

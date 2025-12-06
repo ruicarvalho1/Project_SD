@@ -100,7 +100,7 @@ def login_flow():
 
     username = input("Username: ").strip()
     if not username:
-        return None
+        return None, None
 
     user_folder = get_user_folder(username)
     cert_path = user_folder / "client_cert.pem"
@@ -111,19 +111,19 @@ def login_flow():
         p = Path(custom_path)
         if not p.exists():
             print("Certificate not found.")
-            return None
+            return None, None
         cert_path = p
 
     private_key_path = cert_path.parent / "client_private_key.pem"
     if not private_key_path.exists():
         print("Private key not found.")
-        return None
+        return None, None
 
     try:
         # Challenge-response authentication
         token = login_secure(username, private_key_path)
         if not token:
-            return None
+            return None, None
 
         # Store token for P2P broadcast authorization
         set_global_token(token)
@@ -133,16 +133,15 @@ def login_flow():
         client = P2PTrackerClient(username)
 
         if client.connect_and_auth(token, p2p_port):
-            global P2P_CLIENT_INSTANCE
-            P2P_CLIENT_INSTANCE = client
-            return username
+            return username, client
 
         print("WebSocket authentication failed.")
-        return None
+        return None, None
 
     except Exception as e:
         print(f"Login failed: {e}")
-        return None
+        return None, None
+
 
 
 def authentication_menu():
@@ -161,12 +160,14 @@ def authentication_menu():
             register_flow()
 
         elif choice == '2':
-            user = login_flow()
-            if user:
-                return user
+            username, client = login_flow()
+            if username:
+                return username, client
 
         elif choice == '3':
             sys.exit(0)
 
         else:
             print("Invalid option.")
+
+

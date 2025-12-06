@@ -1,12 +1,30 @@
+# auction_menu.py
+import base64
+import json
+from datetime import datetime, timezone
+
 from Blockchain import blockchain_client
 from Login_Client.identity.wallet_manager import load_wallet
+from cryptography.hazmat.primitives import serialization
+from cryptography.x509 import load_pem_x509_certificate
+
 from .auction_room import enter_auction_room
-from .auction_utils import broadcast_to_peers
-from .auction_display import display_auction_header
-from .auction_input import input_with_timeout
-import datetime
+from .auction_utils import (
+    encrypt_data,
+    decrypt_data,
+    save_pseudonym_cache,
+    load_pseudonym_cache,
+    PSEUDONYM_CACHE,
+)
+from .pseudonyms import (
+    generate_pseudonym,
+    generate_pseudonym_keypair,
+    build_pseudonym_token,
+)
+
 
 def auction_menu(user_folder, username, p2p_client):
+    """Main auction menu loop."""
     while True:
         print("\n=====================================")
         print("              AUCTION MENU           ")
@@ -16,7 +34,7 @@ def auction_menu(user_folder, username, p2p_client):
         try:
             addr = (user_folder / "wallet_address.txt").read_text().strip()
             balance = blockchain_client.get_internal_balance(addr)
-            print(f"Wallet: {addr}")
+            print(f"Wallet:  {addr}")
             print(f"Balance: {balance} ETH")
         except Exception:
             pass
@@ -40,6 +58,7 @@ def auction_menu(user_folder, username, p2p_client):
 
 
 def select_and_enter_room(user_folder, username, p2p_client):
+    """Select an auction from the blockchain and enter the live auction room."""
     print("\n--- LOADING AUCTIONS ---")
     try:
         auctions = blockchain_client.get_all_auctions()
@@ -51,7 +70,12 @@ def select_and_enter_room(user_folder, username, p2p_client):
         print(f"{'ID':<4} | {'Item':<20} | {'Highest Bid':<12} | {'Time Left'}")
         print("-" * 60)
 
-        now = datetime.datetime.now().timestamp()
+        # Use blockchain time if available, otherwise local system time
+        try:
+            now = blockchain_client.get_current_blockchain_timestamp()
+        except AttributeError:
+            now = datetime.now().timestamp()
+
         for auc in auctions:
             if not auc["active"]:
                 continue
@@ -70,13 +94,177 @@ def select_and_enter_room(user_folder, username, p2p_client):
         if auction_id.upper() == "B":
             return
 
-        enter_auction_room(user_folder, username, auction_id, p2p_client)
+        # ------------------------------------------------------------------
+        # 1. Load pseudonym cache and ask for password
+        # ------------------------------------------------------------------
+        load_pseudonym_cache(user_folder)  # fills the global PSEUDONYM_CACHE
+
+        print("\n[SECURITY] Enter your wallet password to unlock/create the pseudonym.")
+        password = input("Password: ").strip()
+
+        cache_key = f"{username}_{auction_id}"
+        pseudo_data_ram = {}  # decrypted data to use inside the room
+
+        # ============================================================
+        # CASE A: Pseudonym already exists in cache
+        # ============================================================
+        if cache_key in PSEUDONYM_CACHE:
+            print(" -> Encrypted pseudonym found. Unlocking...")
+            cached_entry = PSEUDONYM_CACHE[cache_key]
+
+            try:
+                # 1) Decrypt pseudonym private key
+                encrypted_bytes = eval(cached_entry["pseudo_priv_encrypted"])
+                salt_bytes = base64.b64decode(cached_entry["salt"])
+
+                decrypted_pem = decrypt_data(password, encrypted_bytes, salt_bytes)
+
+                pseudo_priv_obj = serialization.load_pem_private_key(
+                    decrypted_pem, password=None
+                )
+
+                # 2) Load delegation token from JSON
+                token_dict = json.loads(cached_entry["token"])
+
+                # 3) Check if delegation token is expired and refresh if needed
+                needs_refresh = False
+                not_after_str = token_dict.get("not_after")
+
+                if not_after_str:
+                    try:
+                        # Example format: "2025-12-06T18:19:05.381376+00:00Z"
+                        not_after = datetime.fromisoformat(
+                            not_after_str.replace("Z", "+00:00")
+                        )
+                        if datetime.now(timezone.utc) > not_after:
+                            needs_refresh = True
+                    except Exception:
+                        # If parsing fails, refresh the token for safety
+                        needs_refresh = True
+
+                if needs_refresh:
+                    print(" -> Delegation token expired. Regenerating...")
+
+                    # Load the real identity (client private key + certificate)
+                    user_priv_pem = (user_folder / "client_private_key.pem").read_bytes()
+                    user_priv_key = serialization.load_pem_private_key(
+                        user_priv_pem, password=None
+                    )
+
+                    user_cert_pem = (user_folder / "client_cert.pem").read_bytes()
+                    user_cert = load_pem_x509_certificate(user_cert_pem)
+                    user_cert_serial = str(user_cert.serial_number)
+
+                    # Reuse the same pseudonym id and public key
+                    pseudo_id = cached_entry["pseudo_id"]
+                    pseudo_pub_pem = pseudo_priv_obj.public_key().public_bytes(
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                    )
+
+                    # Build a new delegation token
+                    new_token = build_pseudonym_token(
+                        user_priv_key,
+                        user_cert_serial,
+                        auction_id,
+                        pseudo_id,
+                        pseudo_pub_pem,
+                    )
+
+                    # Update cache in memory and on disk
+                    cached_entry["token"] = json.dumps(new_token)
+                    PSEUDONYM_CACHE[cache_key] = cached_entry
+                    save_pseudonym_cache(user_folder)
+
+                    token_dict = new_token  # start using the refreshed token
+
+                # 4) Data ready to be used in the auction room
+                pseudo_data_ram = {
+                    "pseudo_id": cached_entry["pseudo_id"],
+                    "pseudo_priv": pseudo_priv_obj,
+                    "token": token_dict,
+                }
+                print(f" -> Success: identity {pseudo_data_ram['pseudo_id']} loaded.")
+
+            except Exception as e:
+                print(f" [CRYPTO ERROR] Wrong password or corrupted data: {e}")
+                return
+
+        # ============================================================
+        # CASE B: First time in this auction – create a new pseudonym
+        # ============================================================
+        else:
+            print(" -> Generating new anonymous identity for this auction...")
+
+            # Load real identity to sign the delegation
+            try:
+                # Just to verify the password and ensure the user controls this wallet
+                _ = load_wallet(user_folder, password)
+            except Exception:
+                print(" [ERROR] Invalid wallet password.")
+                return
+
+            user_priv_pem = (user_folder / "client_private_key.pem").read_bytes()
+            user_priv_key = serialization.load_pem_private_key(
+                user_priv_pem, password=None
+            )
+
+            user_cert_pem = (user_folder / "client_cert.pem").read_bytes()
+            user_cert = load_pem_x509_certificate(user_cert_pem)
+            user_cert_serial = str(user_cert.serial_number)
+
+            # Generate pseudonym key pair
+            pseudo_id = generate_pseudonym()
+            pseudo_priv, _, pseudo_pub_pem = generate_pseudonym_keypair()
+
+            # Build delegation token (dict)
+            delegation_token = build_pseudonym_token(
+                user_priv_key, user_cert_serial, auction_id, pseudo_id, pseudo_pub_pem
+            )
+
+            # Encrypt and store the pseudonym private key
+            pseudo_priv_bytes = pseudo_priv.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
+
+            encrypted_key, salt = encrypt_data(password, pseudo_priv_bytes)
+
+            pseudo_data_to_save = {
+                "pseudo_id": pseudo_id,
+                "pseudo_priv_encrypted": str(encrypted_key),
+                "salt": base64.b64encode(salt).decode("utf-8"),
+                "token": json.dumps(delegation_token),
+            }
+
+            PSEUDONYM_CACHE[cache_key] = pseudo_data_to_save
+            save_pseudonym_cache(user_folder)
+
+            pseudo_data_ram = {
+                "pseudo_id": pseudo_id,
+                "pseudo_priv": pseudo_priv,
+                "token": delegation_token,
+            }
+            print(f" -> New pseudonym {pseudo_id} created, encrypted, and saved.")
+
+        # --- Enter the live auction room ---
+        enter_auction_room(
+            user_folder,
+            username,
+            auction_id,
+            p2p_client,
+            pseudo_data_ram["pseudo_id"],
+            pseudo_data_ram["pseudo_priv"],
+            pseudo_data_ram["token"],
+        )
 
     except Exception as e:
         print(f" [ERROR] {e}")
 
 
 def create_auction(user_folder, username, p2p_client):
+    """Create a new auction on the blockchain and broadcast the announcement."""
     print("\n=== CREATE AUCTION ===")
 
     desc = input("Item Description: ").strip()
@@ -97,9 +285,14 @@ def create_auction(user_folder, username, p2p_client):
         payload = {
             "description": desc,
             "min_bid": min_bid,
-            "tx_hash": str(tx)
+            "tx_hash": str(tx),
         }
-        broadcast_to_peers("NEW_AUCTION", payload, exclude_user=username)
+
+        if p2p_client is not None:
+            try:
+                p2p_client.broadcast_event("NEW_AUCTION", payload)
+            except Exception as e:
+                print(f" [P2P WARNING] Failed to broadcast NEW_AUCTION: {e}")
 
     except Exception as e:
         print(f" [ERROR] {e}")
