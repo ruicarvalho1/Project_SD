@@ -197,3 +197,4 @@ def get_auction_details(auction_id):
         print(f"Error fetching auction details for {auction_id}: {e}")
         return None
 
+

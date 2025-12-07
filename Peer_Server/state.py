@@ -1,6 +1,7 @@
 import time
 import os
 import json
+import requests
 from threading import Lock
 
 # Peers
@@ -14,6 +15,9 @@ STATE_LOCK = Lock()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LEADER_FILE = os.path.join(BASE_DIR, "auction_leaders.json")
 AUCTION_LEADERS = {}
+MAP_FILE="peer_pseudonym.json"
+
+TRACKER="http://127.0.0.1:5555/"
 
 
 def load_auction_leaders():
@@ -70,3 +74,34 @@ def get_active_peers():
         for pid, info in PEERS.items()
         if now - info["last_seen"] < TIMEOUT_SECONDS
     ]
+
+def load_map():
+    
+    if not os.path.exists(MAP_FILE):
+        return {}
+    with open(MAP_FILE, "r") as f:
+        return json.load(f)
+
+def save_map(data):
+    with open(MAP_FILE, "w") as f:
+        json.dump(data,f,indent=2)
+
+
+def resolve_winner(auction_id, pseudonym, seller_username):
+    r = requests.post(TRACKER + "/resolve", json={
+        "auction_id": auction_id,
+        "pseudonym": pseudonym,
+        "seller_id": seller_username
+    })
+    data = r.json()
+    return data.get("peer_id")
+
+def direct_message(token, target_peer, message_type, message_body):
+    requests.post(TRACKER + "/direct", json={
+        "token": token,
+        "peer_id": target_peer,
+        "payload": {
+            "type": message_type,
+            "data": message_body
+        }
+    })

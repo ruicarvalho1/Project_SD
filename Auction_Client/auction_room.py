@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from Blockchain import blockchain_client
 from Login_Client.identity.wallet_manager import load_wallet
+from Login_Client.identity.paths import *
 
 from .auction_input import input_with_timeout
 from .auction_display import display_auction_header
@@ -16,6 +17,8 @@ from .auction_utils import (
 )
 
 from Login_Client.timestamp import request_timestamp
+
+from Peer_Server.state import resolve_winner, direct_message
 
 
 def enter_auction_room(
@@ -206,3 +209,43 @@ def announce_auction_winner(auction_id):
         print(f"Winning bid:       {highest_bid} ETH")
         print(f"Winning pseudonym: {leader_pseudonym}")
     print("======================")
+
+    # ---------------------------------------------------------------
+    # Determine if *I* am the seller
+    # ---------------------------------------------------------------
+    details = blockchain_client.get_auction_details(auction_id)
+    seller_addr = (details or {}).get("seller", "").lower()
+    i_am_seller = wallet_address.lower() == seller_addr
+
+    if i_am_seller:
+        
+        user_folder=get_user_folder(username)
+        my_certificate = (user_folder / "client_cert.pem").read_text()
+        # Resolve pseudonym → peer_id
+        winner_peer_id = resolve_winner(auction_id, leader_pseudonym)
+
+        if not winner_peer_id:
+            print("Could not resolve winner pseudonym.")
+            return
+
+        print(f"Winner peer_id resolved: {winner_peer_id}")
+
+        # ---------------------------------------------------------------
+        # Step 2: Seller starts private certificate exchange
+        # ---------------------------------------------------------------
+        print("Sending private identity request to winner...")
+
+
+
+        direct_message(
+            peer_id=winner_peer_id,
+            payload={
+                "type": "CERT_REQUEST",
+                "seller_certificate": my_certificate
+            }
+        )
+
+        print("Direct message sent to winner. Awaiting reply...")
+
+    else:
+        print(f"[INFO] You are a bidder in auction #{auction_id}.")

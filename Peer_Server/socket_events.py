@@ -46,3 +46,4 @@ def register_socket_events(socketio):
 
         print(f"[SOCKET] Authenticated: {peer_id} @ {client_ip}")
         emit("status", {"message": "Authenticated", "user": peer_id})
+

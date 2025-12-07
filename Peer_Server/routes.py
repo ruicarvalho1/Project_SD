@@ -1,9 +1,10 @@
 from flask import request, jsonify
 from auth_utils import validate_token
+import json
 from state import (
     PEERS, PEER_SIDS, SID_PEERS,
     update_peer_heartbeat, get_active_peers,
-    update_auction_leader, load_auction_leaders,
+    update_auction_leader, load_auction_leaders,save_map, load_map,
     AUCTION_LEADERS,
 )
 from pseudonym_validation import validate_delegation_and_pseudonym
@@ -87,3 +88,70 @@ def register_http_routes(app, socketio):
         return jsonify({
             "leader_pseudonym": leader_info.get("leader_pseudonym")
         }), 200
+
+    @app.route("/associate_pseudonym", methods=["POST"])
+    def associate_pseudonym():
+        data = request.json
+
+        pseudonym = data.get("pseudonym_pubkey")
+        peer_id = data.get("peer_id")
+
+        if not pseudonym or not peer_id:
+            return jsonify({"error": "missing fields"}), 400
+
+        mapping = load_map()
+        mapping[pseudonym] = peer_id
+        save_map(mapping)
+
+        return jsonify({"status": "ok"}), 200
+    
+    @app.route("/resolve", methods=["POST"])
+    def resolve_pseudonym():
+        data = request.json
+        auction_id = data.get("auction_id")
+        pseudonym = data.get("pseudonym")
+        seller_id = data.get("seller_id")  # provided by seller client
+
+        if not auction_id or not pseudonym or not seller_id:
+            return jsonify({"error": "missing fields"}), 400
+
+        mapping = load_map()    
+        key = f"{auction_id}:{pseudonym}"
+
+        if key not in mapping:
+            return jsonify({"error": "not found"}), 404
+
+        entry = mapping[key]
+
+        if entry["seller_id"] != seller_id:
+            return jsonify({"error": "not your auction"}), 403
+
+        return jsonify({
+            "peer_id": entry["peer_id"]
+        }), 200
+
+
+
+    @app.route("/direct", methods=["POST"])
+    def direct_message():
+        data = request.json
+        token = data.get("token")
+        peer_id = data.get("peer_id")   
+        payload = data.get("payload")
+
+        sender_id = validate_token(token)
+        if not sender_id:
+            return jsonify({"error": "Access denied"}), 403
+
+        sid = PEER_SIDS.get(peer_id)
+        if not sid:
+            return jsonify({"error": "Target not connected"}), 404
+
+        msg = {
+            "sender": sender_id,
+            "type": payload.get("type"),
+            "data": payload.get("data")
+        }
+
+        socketio.emit("new_event", msg, room=sid)
+        return jsonify({"status": "direct_sent"}), 200
