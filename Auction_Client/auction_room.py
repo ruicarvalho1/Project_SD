@@ -12,6 +12,8 @@ from .auction_utils import (
     NEEDS_REFRESH,
 )
 
+from Login_Client.timestamp import *
+
 
 def enter_auction_room(
     user_folder,
@@ -109,6 +111,9 @@ def enter_auction_room(
             }
             msg_bytes = json.dumps(msg_obj, sort_keys=True).encode("utf-8")
 
+            hash=sha256_bytes(msg_bytes)
+            timestamp=request_timestamp(hash)
+
             # Sign the message with the pseudonym private key
             if pseudonym_priv is not None:
                 pseudo_sig_b64 = base64.b64encode(
@@ -122,6 +127,7 @@ def enter_auction_room(
                 **msg_obj,
                 "pseudonym_signature": pseudo_sig_b64,
                 "delegation_token": delegation_token,
+                "timestamp":timestamp,
             }
 
             if p2p_client is not None:
