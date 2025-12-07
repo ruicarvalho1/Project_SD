@@ -1,4 +1,3 @@
-# auction_utils.py
 import json
 from pathlib import Path
 import os

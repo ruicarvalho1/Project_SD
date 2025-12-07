@@ -1,4 +1,3 @@
-# Auction_Client/auction_display.py
 import datetime
 
 from Blockchain import blockchain_client

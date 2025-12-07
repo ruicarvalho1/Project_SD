@@ -1,4 +1,3 @@
-# auction_room.py
 import json
 import base64
 import time

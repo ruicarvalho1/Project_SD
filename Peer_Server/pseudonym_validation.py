@@ -50,7 +50,6 @@ def _parse_token_time(value: str) -> datetime:
 
     dt = datetime.fromisoformat(v)
 
-    # If naive, force UTC
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
 

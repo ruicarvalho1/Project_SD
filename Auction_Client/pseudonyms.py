@@ -1,4 +1,3 @@
-# pseudonyms.py
 import uuid, json, base64, datetime
 from cryptography.hazmat.primitives.asymmetric import ed25519,padding
 from cryptography.hazmat.primitives import serialization, hashes
