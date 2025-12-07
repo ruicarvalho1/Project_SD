@@ -1,4 +1,5 @@
 # Login_Client/p2p_ws_client.py
+
 import socketio
 import threading
 import requests
@@ -24,27 +25,35 @@ class P2PTrackerClient:
 
         @self.sio.on("connect")
         def on_connect():
-            print(f"[P2P] Connected to tracker as {self.username}")
+            pass
 
         @self.sio.on("disconnect")
         def on_disconnect():
-            print("[P2P] Disconnected from tracker")
             self.is_authenticated = False
 
         @self.sio.on("status")
         def on_status(data):
             if data.get("message") == "Authenticated":
                 self.is_authenticated = True
-                print(f"[P2P] Authenticated on tracker as {data.get('user')}")
 
         @self.sio.on("new_event")
         def on_new_event(data):
+            """
+            Generic event from tracker.
 
+            If a refresh callback is registered, we try to call it with the
+            event data. If the callback does not accept parameters, we fall
+            back to calling it without arguments.
+            """
             if self.refresh_callback:
-                self.refresh_callback()
+                try:
+                    self.refresh_callback(data)
+                except TypeError:
+                    # For callbacks that don't accept parameters
+                    self.refresh_callback()
 
     def set_refresh_callback(self, callback_func):
-        """Register the refresh function used by the auction room."""
+        """Register the refresh function used by the client (menu or auction room)."""
         self.refresh_callback = callback_func
 
     def connect_and_auth(self, token: str, p2p_port: int) -> bool:
@@ -56,8 +65,7 @@ class P2PTrackerClient:
             )
             self.sio.emit("authenticate", {"token": token, "port": p2p_port})
             threading.Thread(target=self.sio.wait, daemon=True).start()
-        except socketio.exceptions.ConnectionError as e:
-            print(f"[P2P] Failed to connect to tracker: {e}")
+        except socketio.exceptions.ConnectionError:
             return False
         return True
 
@@ -71,12 +79,10 @@ class P2PTrackerClient:
         - broadcast "new_event" to all connected peers.
         """
         if not GLOBAL_SESSION_TOKEN:
-            print("[P2P] No global session token set; cannot broadcast.")
             return
 
         try:
-            print(f"[P2P] Broadcasting {message_type} to tracker...")
-            resp = requests.post(
+            requests.post(
                 f"{TRACKER_WS_URL}/broadcast",
                 json={
                     "token": GLOBAL_SESSION_TOKEN,
@@ -87,7 +93,5 @@ class P2PTrackerClient:
                 },
                 timeout=2,
             )
-            print(f"[P2P] /broadcast response: {resp.status_code} {resp.text}")
-        except Exception as e:
-            print(f"[P2P] Failed to broadcast event: {e}")
-
+        except Exception:
+            pass

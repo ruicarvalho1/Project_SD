@@ -22,8 +22,45 @@ from .pseudonyms import (
     build_pseudonym_token,
 )
 
+def global_notification_handler(event_data=None):
+    """
+    Callback used in the MAIN MENU.
+    Prints details of events received via P2P.
+    """
+    if event_data:
+        msg_type = event_data.get("type")
+        details = event_data.get("data", {})
+
+        if msg_type == "NEW_BID":
+            print(
+                f"\n [P2P] New bid of {details.get('amount')} ETH "
+                f"in Auction #{details.get('auction_id')}"
+            )
+        elif msg_type == "NEW_AUCTION":
+            print(
+                f"\n [P2P] New auction created: "
+                f"{details.get('description')} (min {details.get('min_bid')} ETH)"
+            )
+        else:
+            print("\n [P2P] Network activity detected.")
+    else:
+        print("\n [P2P] Network activity detected.")
+
+    # Reprint the menu prompt so the user knows they can type
+    print("Option: ", end="", flush=True)
+
+
+
+
 
 def auction_menu(user_folder, username, p2p_client):
+
+    if p2p_client is not None:
+        try:
+            p2p_client.set_refresh_callback(global_notification_handler)
+        except Exception:
+            pass
+
     """Main auction menu loop."""
     while True:
         print("\n=====================================")
