@@ -1,5 +1,3 @@
-# Login_Client/p2p_ws_client.py
-
 import socketio
 import threading
 import requests
