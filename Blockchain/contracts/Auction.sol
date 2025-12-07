@@ -14,9 +14,9 @@ contract Auction is IAuction, Balances {
         uint256 highestBid;
         address highestBidder;
         bool active;
-        uint256 createdAt;           // Block time when the auction was created
-        uint256 highestBidTimestamp; // TSA timestamp of the current highest bid
-        uint256 endedAt;             // Block time when the auction was closed
+        uint256 createdAt;
+        uint256 highestBidTimestamp;
+        uint256 endedAt;
     }
 
     mapping(uint256 => AuctionInfo) public auctions;
@@ -80,6 +80,7 @@ contract Auction is IAuction, Balances {
     // -------------------------------------------------------------------------
     // INTERNAL: APPLY NEW HIGHEST BID (USED ALSO IN TIE-BREAK)
     // -------------------------------------------------------------------------
+
     function _applyNewHighestBid(
         AuctionInfo storage auction,
         uint256 bidAmount,
@@ -102,6 +103,7 @@ contract Auction is IAuction, Balances {
     // -------------------------------------------------------------------------
     // PLACE BID (VALUE + TSA TIMESTAMP FOR TIE-BREAK)
     // -------------------------------------------------------------------------
+
     function placeBid(
         uint256 auctionId,
         uint256 bidAmount,

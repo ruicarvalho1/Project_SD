@@ -1,3 +1,4 @@
+# Auction_Client/auction_room.py
 import json
 import base64
 import time
@@ -27,10 +28,6 @@ def enter_auction_room(
 ):
     """
     Live auction session.
-
-    - Shows real-time auction information.
-    - Allows the user to place bids.
-    - Ends when the user types 'EXIT'.
     """
     print("\n [SETUP] Wallet unlock required.")
     password = input(" Wallet Password: ").strip()
@@ -44,10 +41,9 @@ def enter_auction_room(
 
     wallet_address = account.address
 
-    # Register refresh callback with the P2P client (if supported)
+    # Register refresh callback with the P2P client
     try:
         if p2p_client is not None:
-            # When a NEW_BID arrives from any peer → trigger a refresh
             p2p_client.set_refresh_callback(lambda *_: signal_refresh())
     except AttributeError:
         print("[WARNING] P2P client does not support refresh callbacks.")
@@ -56,30 +52,25 @@ def enter_auction_room(
     first_loop = True
 
     while True:
-        # Redraw header:
-        # - on first iteration
-        # - whenever a refresh was signaled
+        # Redraw header
         if NEEDS_REFRESH or first_loop:
             if not display_auction_header(auction_id, wallet_address, pseudonym_id):
-                # Auction ended or error fetching state
                 break
             NEEDS_REFRESH = False
             first_loop = False
 
+
         bid_amount = input_with_timeout(
             " Enter bid amount ('R' refresh / 'EXIT' leave): ",
-            timeout=1.0,
+            timeout=5.0, 
         )
 
-        # Timeout: no user input during the timeout period
         if bid_amount is None:
-            # Force redraw on next loop (updates TIME LEFT and CURRENT BID)
             NEEDS_REFRESH = True
             continue
 
         bid_amount = bid_amount.strip().upper()
 
-        # Ignore empty ENTER (no action)
         if not bid_amount:
             continue
 
@@ -87,17 +78,15 @@ def enter_auction_room(
             print(" Leaving auction room...")
             break
         elif bid_amount == "R":
-            # Explicit refresh
             NEEDS_REFRESH = True
             continue
         elif not bid_amount.isdigit():
-            print("Invalid action. Enter a numeric value, 'R', or 'EXIT'.")
+            print(" Invalid action. Enter a numeric value, 'R', or 'EXIT'.")
             time.sleep(1)
             continue
 
-        # Submit bid on-chain and broadcast the event via P2P
         try:
-            # 1) Build canonical message for TSA / pseudonym
+            # 1) Build canonical message
             msg_obj_for_tsa = {
                 "auction_id": auction_id,
                 "amount": bid_amount,
@@ -107,14 +96,14 @@ def enter_auction_room(
                 msg_obj_for_tsa, sort_keys=True
             ).encode("utf-8")
 
-            # 2) Request timestamp from TSA (token with "timestamp" in ISO)
+            # 2) Request timestamp from TSA
             tsa_token = request_timestamp(msg_bytes_for_tsa)
 
             tsa_iso = tsa_token["timestamp"]
             tsa_dt = datetime.fromisoformat(tsa_iso.replace("Z", "+00:00"))
             tsa_timestamp = int(tsa_dt.timestamp())
 
-            # 3) Send bid to blockchain with TSA timestamp for tie-breaking
+            # 3) Send bid to blockchain
             tx_hash = blockchain_client.place_bid_on_chain(
                 account,
                 auction_id,
@@ -123,10 +112,10 @@ def enter_auction_room(
             )
             print(f" Bid accepted. Tx: {tx_hash}")
 
-            # 4) Mark local refresh (will redraw header on next loop)
+            # 4) Mark local refresh
             signal_refresh()
 
-            # 5) Prepare message for pseudonym signature (includes tx_hash)
+            # 5) Prepare P2P broadcast
             msg_obj = {
                 "auction_id": auction_id,
                 "amount": bid_amount,
@@ -135,7 +124,6 @@ def enter_auction_room(
             }
             msg_bytes = json.dumps(msg_obj, sort_keys=True).encode("utf-8")
 
-            # Sign with the pseudonym private key
             if pseudonym_priv is not None:
                 pseudo_sig_b64 = base64.b64encode(
                     pseudonym_priv.sign(msg_bytes)
@@ -154,7 +142,7 @@ def enter_auction_room(
                 try:
                     p2p_client.broadcast_event("NEW_BID", payload)
                 except Exception as e:
-                    print(f" [P2P WARNING] Failed to broadcast NEW_BID: {e}")
+                    print(f" [P2P WARNING] Failed to broadcast: {e}")
 
             time.sleep(0.5)
 
