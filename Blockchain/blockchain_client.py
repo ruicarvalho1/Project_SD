@@ -99,7 +99,7 @@ def create_auction(account, description, duration_minutes, min_bid):
 
 
 def place_bid_on_chain(account, auction_id, amount, tsa_timestamp):
-    """Places a bid on an auction."""
+    """Places a bid on an auction (with TSA timestamp)."""
     if not contract:
         raise Exception("Contract offline")
 
@@ -116,6 +116,7 @@ def place_bid_on_chain(account, auction_id, amount, tsa_timestamp):
     })
 
     return _send_signed_transaction(tx, account.key)
+
 
 
 
@@ -171,3 +172,28 @@ def get_current_blockchain_timestamp():
     latest_block = web3.eth.get_block("latest")
 
     return latest_block["timestamp"]
+
+
+def get_auction_details(auction_id):
+    """Returns full info for a single auction, including active flag and highestBid."""
+    if not contract:
+        return None
+    try:
+        data = contract.functions.auctions(int(auction_id)).call()
+
+        return {
+            "id": int(auction_id),
+            "seller": data[0],
+            "description": data[1],
+            "min_bid": data[2],
+            "close_date": data[3],
+            "highest_bid": data[4],
+            "highest_bidder": data[5],
+            "active": data[6],
+            "created_at": data[7],
+            "highest_bid_timestamp": data[8],
+        }
+    except Exception as e:
+        print(f"Error fetching auction details for {auction_id}: {e}")
+        return None
+
