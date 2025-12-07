@@ -3,7 +3,7 @@ from brownie import Auction, Balances, accounts, config
 
 def main():
 
-    PRIVATE_KEY = "0x1ebc4c70046e6cd8d2266306bba14f40fec6dec092c3e7a4f8ac24e88ca817ad"
+    PRIVATE_KEY = "0x250f690e0017bd5d2e3a6b49e11df741852040c67df45afb8fd449ca902e124c"
 
     deployer = accounts.add(PRIVATE_KEY)
 

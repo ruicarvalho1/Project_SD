@@ -45,10 +45,7 @@ def global_notification_handler(event_data=None):
     else:
         print("\n [P2P] Network activity detected.")
 
-    # Reprint the menu prompt so the user knows they can type
     print("Option: ", end="", flush=True)
-
-
 
 
 

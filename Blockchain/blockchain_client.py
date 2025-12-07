@@ -2,6 +2,7 @@ import json
 import os
 from web3 import Web3
 from pathlib import Path
+import time
 
 # Blockchain connection
 RPC_URL = "http://127.0.0.1:7545"
@@ -9,7 +10,7 @@ web3 = Web3(Web3.HTTPProvider(RPC_URL))
 
 BASE_DIR = Path(__file__).parent.parent
 ABI_PATH = BASE_DIR / "Blockchain" / "build" / "contracts" / "Auction.json"
-CONTRACT_ADDRESS = "0x43d0df481a09A2ad80641373CE95F2a32EcDB48C"
+CONTRACT_ADDRESS = "0xC2aB968B17FBcC30D3ACf40f66F08Cc1A96350FF"
 
 contract = None
 BANK_ACCOUNT = web3.eth.accounts[0] if web3.is_connected() else None
@@ -97,14 +98,15 @@ def create_auction(account, description, duration_minutes, min_bid):
     return _send_signed_transaction(tx, account.key)
 
 
-def place_bid_on_chain(account, auction_id, amount):
+def place_bid_on_chain(account, auction_id, amount, tsa_timestamp):
     """Places a bid on an auction."""
     if not contract:
         raise Exception("Contract offline")
 
     tx = contract.functions.placeBid(
         int(auction_id),
-        int(amount)
+        int(amount),
+        int(tsa_timestamp),
     ).build_transaction({
         'from': account.address,
         'nonce': web3.eth.get_transaction_count(account.address),
@@ -114,6 +116,7 @@ def place_bid_on_chain(account, auction_id, amount):
     })
 
     return _send_signed_transaction(tx, account.key)
+
 
 
 def get_all_auctions():
@@ -155,3 +158,16 @@ def fund_new_user(target_address, amount_eth=10):
         return True
     except:
         return False
+
+
+def get_current_blockchain_timestamp():
+    """
+    Returns the current blockchain time as given by the timestamp
+    of the latest mined block.
+    """
+    if not web3.is_connected():
+        raise RuntimeError("Web3 not connected")
+
+    latest_block = web3.eth.get_block("latest")
+
+    return latest_block["timestamp"]

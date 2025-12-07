@@ -9,27 +9,56 @@ contract Auction is IAuction, Balances {
     struct AuctionInfo {
         address seller;
         string description;
-        uint minBid;
-        uint closeDate;
-        uint highestBid;
+        uint256 minBid;
+        uint256 closeDate;
+        uint256 highestBid;
         address highestBidder;
         bool active;
+        uint256 createdAt;           // Block time when the auction was created
+        uint256 highestBidTimestamp; // TSA timestamp of the current highest bid
+        uint256 endedAt;             // Block time when the auction was closed
     }
 
-    mapping(uint => AuctionInfo) public auctions;
-    uint public auctionCount;
+    mapping(uint256 => AuctionInfo) public auctions;
+    uint256 public auctionCount;
 
-    // EVENTS (Seller is not revealed at creation to keep public anonymity)
-    event AuctionCreated(uint indexed auctionId, string description, uint closeDate, uint minBid);
-    event NewBid(uint indexed auctionId, uint amount);
-    event AuctionEnded(uint indexed auctionId, address winner, uint amount);
+    event AuctionCreated(
+        uint256 indexed auctionId,
+        string description,
+        uint256 closeDate,
+        uint256 minBid
+    );
 
-    function createAuction(string memory _desc, uint _duration, uint _minBid) external override returns (uint) {
-        initUser(); // Ensures the user has initial balance
+    event NewBid(
+        uint256 indexed auctionId,
+        uint256 amount,
+        uint256 bidTimestamp
+    );
+
+    event AuctionEnded(
+        uint256 indexed auctionId,
+        address winner,
+        uint256 amount
+    );
+
+    // -------------------------------------------------------------------------
+    // CREATE AUCTION
+    // -------------------------------------------------------------------------
+    function createAuction(
+        string memory _desc,
+        uint256 _duration,
+        uint256 _minBid
+    )
+        external
+        override
+        returns (uint256)
+    {
+        initUser();
+
         auctionCount++;
 
-        // Sets closing time based on the current block timestamp
-        uint closingTime = block.timestamp + _duration;
+        uint256 nowTs = block.timestamp;
+        uint256 closingTime = nowTs + _duration;
 
         auctions[auctionCount] = AuctionInfo({
             seller: msg.sender,
@@ -38,54 +67,137 @@ contract Auction is IAuction, Balances {
             closeDate: closingTime,
             highestBid: 0,
             highestBidder: address(0),
-            active: true
+            active: true,
+            createdAt: nowTs,
+            highestBidTimestamp: 0,
+            endedAt: 0
         });
 
         emit AuctionCreated(auctionCount, _desc, closingTime, _minBid);
         return auctionCount;
     }
 
-    function placeBid(uint auctionId, uint bidAmount) external override {
+    // -------------------------------------------------------------------------
+    // INTERNAL: APPLY NEW HIGHEST BID (USED ALSO IN TIE-BREAK)
+    // -------------------------------------------------------------------------
+    function _applyNewHighestBid(
+        AuctionInfo storage auction,
+        uint256 bidAmount,
+        uint256 tsaTimestamp
+    ) internal {
+        // Refund the previous highest bidder if exists
+        if (auction.highestBidder != address(0)) {
+            balances[auction.highestBidder] += auction.highestBid;
+        }
+
+        // Charge the new bidder
+        balances[msg.sender] -= bidAmount;
+
+        // Update auction state
+        auction.highestBid = bidAmount;
+        auction.highestBidder = msg.sender;
+        auction.highestBidTimestamp = tsaTimestamp;
+    }
+
+    // -------------------------------------------------------------------------
+    // PLACE BID (VALUE + TSA TIMESTAMP FOR TIE-BREAK)
+    // -------------------------------------------------------------------------
+    function placeBid(
+        uint256 auctionId,
+        uint256 bidAmount,
+        uint256 tsaTimestamp
+    )
+        external
+        override
+    {
         initUser();
 
         AuctionInfo storage auction = auctions[auctionId];
 
-
-        // 1. Time validations
+        // 1. Auction validations
         require(auction.active, "Auction already ended");
         require(block.timestamp < auction.closeDate, "Auction time expired");
         require(msg.sender != auction.seller, "Seller cannot bid on own auction.");
 
         // 2. Bid validations
         require(bidAmount >= auction.minBid, "Bid below minimum price");
-        require(bidAmount > auction.highestBid, "Bid below current highest");
         require(balances[msg.sender] >= bidAmount, "Insufficient balance");
 
-        // 3. Refund previous highest bidder
-        if (auction.highestBidder != address(0)) {
-            balances[auction.highestBidder] += auction.highestBid;
+        if (auction.highestBidder == address(0)) {
+            _applyNewHighestBid(auction, bidAmount, tsaTimestamp);
+        } else {
+
+            if (bidAmount > auction.highestBid) {
+
+                _applyNewHighestBid(auction, bidAmount, tsaTimestamp);
+            } else if (bidAmount == auction.highestBid) {
+
+                require(
+                    tsaTimestamp < auction.highestBidTimestamp,
+                    "Bid loses time tie-break"
+                );
+                _applyNewHighestBid(auction, bidAmount, tsaTimestamp);
+            } else {
+                revert("Bid below current highest");
+            }
         }
 
-        // 4. Charge and update
-        balances[msg.sender] -= bidAmount;
-        auction.highestBid = bidAmount;
-        auction.highestBidder = msg.sender;
-
-        emit NewBid(auctionId, bidAmount);
+        emit NewBid(auctionId, bidAmount, tsaTimestamp);
     }
 
-    function endAuction(uint auctionId) external override {
+
+    function endAuction(uint256 auctionId) external override {
         AuctionInfo storage auction = auctions[auctionId];
 
         require(msg.sender == auction.seller, "Only the seller can close the auction");
         require(auction.active, "Auction already closed");
 
         auction.active = false;
+        auction.endedAt = block.timestamp;
 
         if (auction.highestBid > 0) {
             balances[auction.seller] += auction.highestBid;
         }
 
         emit AuctionEnded(auctionId, auction.highestBidder, auction.highestBid);
+    }
+
+
+    function getAuctionDuration(uint256 auctionId) external view returns (uint256) {
+        AuctionInfo storage auction = auctions[auctionId];
+        require(auction.createdAt != 0, "Auction does not exist");
+        return auction.closeDate - auction.createdAt;
+    }
+
+    function getRealAuctionDuration(uint256 auctionId) external view returns (uint256) {
+        AuctionInfo storage auction = auctions[auctionId];
+        require(auction.createdAt != 0, "Auction does not exist");
+
+        uint256 endTs = auction.endedAt != 0 ? auction.endedAt : block.timestamp;
+        return endTs - auction.createdAt;
+    }
+
+
+    function getAuctionTimes(
+        uint256 auctionId
+    )
+        external
+        view
+        returns (
+            uint256 createdAt,
+            uint256 closeDate,
+            uint256 highestBidTimestamp,
+            uint256 endedAt
+        )
+    {
+        AuctionInfo storage auction = auctions[auctionId];
+        require(auction.createdAt != 0, "Auction does not exist");
+
+        return (
+            auction.createdAt,
+            auction.closeDate,
+            auction.highestBidTimestamp,
+            auction.endedAt
+        );
     }
 }
