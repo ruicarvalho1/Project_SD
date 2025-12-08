@@ -95,9 +95,7 @@ def enter_auction_room(
             announce_auction_winner(auction_id, wallet_address, user_folder, p2p_client)
             break
 
-        # ------------------------------------------------------------------
-        # 4) Input with timeout so it cans update TIME LEFT occasionally
-        # ------------------------------------------------------------------
+        # Input with timeout (5 seconds) to allow auto-refresh
         bid_amount = input_with_timeout(
             " Enter bid amount ('R' refresh / 'EXIT' leave): ",
             timeout=5.0,

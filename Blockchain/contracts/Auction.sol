@@ -41,9 +41,8 @@ contract Auction is IAuction, Balances {
         uint256 amount
     );
 
-    // -------------------------------------------------------------------------
+
     // CREATE AUCTION
-    // -------------------------------------------------------------------------
     function createAuction(
         string memory _desc,
         uint256 _duration,
@@ -77,10 +76,7 @@ contract Auction is IAuction, Balances {
         return auctionCount;
     }
 
-    // -------------------------------------------------------------------------
     // INTERNAL: APPLY NEW HIGHEST BID (USED ALSO IN TIE-BREAK)
-    // -------------------------------------------------------------------------
-
     function _applyNewHighestBid(
         AuctionInfo storage auction,
         uint256 bidAmount,
@@ -100,10 +96,7 @@ contract Auction is IAuction, Balances {
         auction.highestBidTimestamp = tsaTimestamp;
     }
 
-    // -------------------------------------------------------------------------
     // PLACE BID (VALUE + TSA TIMESTAMP FOR TIE-BREAK)
-    // -------------------------------------------------------------------------
-
     function placeBid(
         uint256 auctionId,
         uint256 bidAmount,
@@ -116,12 +109,12 @@ contract Auction is IAuction, Balances {
 
         AuctionInfo storage auction = auctions[auctionId];
 
-        // 1. Auction validations
+        // Auction validations
         require(auction.active, "Auction already ended");
         require(block.timestamp < auction.closeDate, "Auction time expired");
         require(msg.sender != auction.seller, "Seller cannot bid on own auction.");
 
-        // 2. Bid validations
+        // Bid validations
         require(bidAmount >= auction.minBid, "Bid below minimum price");
         require(balances[msg.sender] >= bidAmount, "Insufficient balance");
 
