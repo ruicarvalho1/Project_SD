@@ -1,6 +1,8 @@
+# Auction_Client/auction_menu.py
 import base64
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 from Blockchain import blockchain_client
 from Login_Client.identity.wallet_manager import load_wallet
@@ -21,10 +23,10 @@ from .pseudonyms import (
     build_pseudonym_token,
 )
 
+
 def global_notification_handler(event_data=None):
     """
-    Callback used in the MAIN MENU.
-    Prints details of events received via P2P.
+    Callback usado no MENU PRINCIPAL para eventos broadcast (new_event).
     """
     if event_data:
         msg_type = event_data.get("type")
@@ -48,16 +50,79 @@ def global_notification_handler(event_data=None):
     print("Option: ", end="", flush=True)
 
 
+def auction_menu(user_folder: Path, username: str, p2p_client):
+    """Main auction menu loop."""
 
-def auction_menu(user_folder, username, p2p_client):
-
+    # 1) Registar callback para broadcast (NEW_BID, NEW_AUCTION, ...)
     if p2p_client is not None:
         try:
             p2p_client.set_refresh_callback(global_notification_handler)
         except Exception:
             pass
 
-    """Main auction menu loop."""
+        # 2) Registar handler para mensagens diretas (CERT_REQUEST / CERT_RESPONSE)
+        def direct_handler(msg):
+            sender = msg.get("sender")
+            payload = (msg.get("payload") or {})
+            ptype = payload.get("type")
+
+            # Diretório para guardar certificados recebidos
+            exchanged_dir = user_folder / "exchanged_certs"
+            exchanged_dir.mkdir(exist_ok=True)
+
+            if ptype == "CERT_REQUEST":
+                auction_id = payload.get("auction_id")
+                seller_cert_pem = payload.get("seller_cert", "")
+
+                # Guardar certificado do seller
+                if auction_id is not None and seller_cert_pem:
+                    path = exchanged_dir / f"auction_{auction_id}_seller_cert.pem"
+                    path.write_text(seller_cert_pem)
+                    print(f"\n[P2P] Received seller certificate for auction #{auction_id} from {sender}")
+
+                # Responder com o meu certificado (sou o vencedor)
+                try:
+                    my_cert_path = user_folder / "client_cert.pem"
+                    my_cert_pem = my_cert_path.read_text()
+                    if p2p_client is not None:
+                        p2p_client.send_direct(
+                            peer_id=sender,
+                            payload={
+                                "type": "CERT_RESPONSE",
+                                "auction_id": auction_id,
+                                "winner_cert": my_cert_pem,
+                            },
+                        )
+                        print("[P2P] Sent my certificate back to seller.")
+                except Exception as e:
+                    print(f"[P2P] Failed to send CERT_RESPONSE: {e}")
+
+                print("Option: ", end="", flush=True)
+
+            elif ptype == "CERT_RESPONSE":
+                auction_id = payload.get("auction_id")
+                winner_cert_pem = payload.get("winner_cert", "")
+
+                if auction_id is not None and winner_cert_pem:
+                    path = exchanged_dir / f"auction_{auction_id}_winner_cert.pem"
+                    path.write_text(winner_cert_pem)
+                    print(f"\n[P2P] Received winner certificate for auction #{auction_id} from {sender}")
+
+                print("Option: ", end="", flush=True)
+
+            else:
+                # outros tipos (se quiseres no futuro)
+                print(f"\n[P2P] Direct message from {sender}: {payload}")
+                print("Option: ", end="", flush=True)
+
+        try:
+            p2p_client.set_direct_handler(direct_handler)
+        except Exception:
+            pass
+
+    # =========================
+    # LOOP PRINCIPAL DO MENU
+    # =========================
     while True:
         print("\n=====================================")
         print("              AUCTION MENU           ")
@@ -90,7 +155,7 @@ def auction_menu(user_folder, username, p2p_client):
             print("Invalid option.")
 
 
-def select_and_enter_room(user_folder, username, p2p_client):
+def select_and_enter_room(user_folder: Path, username: str, p2p_client):
     """Select an auction from the blockchain and enter the live auction room."""
     print("\n--- LOADING AUCTIONS ---")
     try:
@@ -165,14 +230,12 @@ def select_and_enter_room(user_folder, username, p2p_client):
 
                 if not_after_str:
                     try:
-                        # Example format: "2025-12-06T18:19:05.381376+00:00Z"
                         not_after = datetime.fromisoformat(
                             not_after_str.replace("Z", "+00:00")
                         )
                         if datetime.now(timezone.utc) > not_after:
                             needs_refresh = True
                     except Exception:
-                        # If parsing fails, refresh the token for safety
                         needs_refresh = True
 
                 if needs_refresh:
@@ -231,7 +294,6 @@ def select_and_enter_room(user_folder, username, p2p_client):
 
             # Load real identity to sign the delegation
             try:
-                # Just to verify the password and ensure the user controls this wallet
                 _ = load_wallet(user_folder, password)
             except Exception:
                 print(" [ERROR] Invalid wallet password.")
@@ -281,11 +343,20 @@ def select_and_enter_room(user_folder, username, p2p_client):
             }
             print(f" -> New pseudonym {pseudo_id} created, encrypted, and saved.")
 
+        # ------------------------------------------------------------------
+        # 2. Associar pseudónimo ao meu peer_id no tracker (para futura resolução)
+        # ------------------------------------------------------------------
+        if p2p_client is not None:
+            try:
+                p2p_client.associate_pseudonym(int(auction_id), pseudo_data_ram["pseudo_id"])
+            except Exception:
+                pass
+
         # --- Enter the live auction room ---
         enter_auction_room(
             user_folder,
             username,
-            auction_id,
+            int(auction_id),
             p2p_client,
             pseudo_data_ram["pseudo_id"],
             pseudo_data_ram["pseudo_priv"],
@@ -296,7 +367,7 @@ def select_and_enter_room(user_folder, username, p2p_client):
         print(f" [ERROR] {e}")
 
 
-def create_auction(user_folder, username, p2p_client):
+def create_auction(user_folder: Path, username: str, p2p_client):
     """Create a new auction on the blockchain and broadcast the announcement."""
     print("\n=== CREATE AUCTION ===")
 
