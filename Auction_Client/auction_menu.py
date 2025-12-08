@@ -1,4 +1,4 @@
-# Auction_Client/auction_menu.py
+
 import base64
 import json
 from datetime import datetime, timezone
@@ -25,9 +25,7 @@ from .pseudonyms import (
 
 
 def global_notification_handler(event_data=None):
-    """
-    Callback usado no MENU PRINCIPAL para eventos broadcast (new_event).
-    """
+   
     if event_data:
         msg_type = event_data.get("type")
         details = event_data.get("data", {})
@@ -53,20 +51,20 @@ def global_notification_handler(event_data=None):
 def auction_menu(user_folder: Path, username: str, p2p_client):
     """Main auction menu loop."""
 
-    # 1) Registar callback para broadcast (NEW_BID, NEW_AUCTION, ...)
+    # Callback for broadcast (NEW_BID, NEW_AUCTION, ...)
     if p2p_client is not None:
         try:
             p2p_client.set_refresh_callback(global_notification_handler)
         except Exception:
             pass
 
-        # 2) Registar handler para mensagens diretas (CERT_REQUEST / CERT_RESPONSE)
+        # 2) Handles direct messages (CERT_REQUEST / CERT_RESPONSE)
         def direct_handler(msg):
             sender = msg.get("sender")
             payload = (msg.get("payload") or {})
             ptype = payload.get("type")
 
-            # Diretório para guardar certificados recebidos
+            # Folder to hold the received certificates
             exchanged_dir = user_folder / "exchanged_certs"
             exchanged_dir.mkdir(exist_ok=True)
 
@@ -74,13 +72,13 @@ def auction_menu(user_folder: Path, username: str, p2p_client):
                 auction_id = payload.get("auction_id")
                 seller_cert_pem = payload.get("seller_cert", "")
 
-                # Guardar certificado do seller
+                # Saves seller's certificate
                 if auction_id is not None and seller_cert_pem:
                     path = exchanged_dir / f"auction_{auction_id}_seller_cert.pem"
                     path.write_text(seller_cert_pem)
                     print(f"\n[P2P] Received seller certificate for auction #{auction_id} from {sender}")
 
-                # Responder com o meu certificado (sou o vencedor)
+                # Send to the seller the winner's certificate
                 try:
                     my_cert_path = user_folder / "client_cert.pem"
                     my_cert_pem = my_cert_path.read_text()
@@ -111,7 +109,7 @@ def auction_menu(user_folder: Path, username: str, p2p_client):
                 print("Option: ", end="", flush=True)
 
             else:
-                # outros tipos (se quiseres no futuro)
+                
                 print(f"\n[P2P] Direct message from {sender}: {payload}")
                 print("Option: ", end="", flush=True)
 
@@ -120,9 +118,9 @@ def auction_menu(user_folder: Path, username: str, p2p_client):
         except Exception:
             pass
 
-    # =========================
-    # LOOP PRINCIPAL DO MENU
-    # =========================
+    # 
+    # Main Menu
+    # 
     while True:
         print("\n=====================================")
         print("              AUCTION MENU           ")
@@ -192,26 +190,26 @@ def select_and_enter_room(user_folder: Path, username: str, p2p_client):
         if auction_id.upper() == "B":
             return
 
-        # ------------------------------------------------------------------
-        # 1. Load pseudonym cache and ask for password
-        # ------------------------------------------------------------------
-        load_pseudonym_cache(user_folder)  # fills the global PSEUDONYM_CACHE
+    
+        # Load pseudonym cache and ask for password
+         
+        load_pseudonym_cache(user_folder)  
 
         print("\n[SECURITY] Enter your wallet password to unlock/create the pseudonym.")
         password = input("Password: ").strip()
 
         cache_key = f"{username}_{auction_id}"
-        pseudo_data_ram = {}  # decrypted data to use inside the room
+        pseudo_data_ram = {}  
 
-        # ============================================================
+        
         # CASE A: Pseudonym already exists in cache
-        # ============================================================
+    
         if cache_key in PSEUDONYM_CACHE:
             print(" -> Encrypted pseudonym found. Unlocking...")
             cached_entry = PSEUDONYM_CACHE[cache_key]
 
             try:
-                # 1) Decrypt pseudonym private key
+                # Decrypt pseudonym private key
                 encrypted_bytes = eval(cached_entry["pseudo_priv_encrypted"])
                 salt_bytes = base64.b64decode(cached_entry["salt"])
 
@@ -221,10 +219,10 @@ def select_and_enter_room(user_folder: Path, username: str, p2p_client):
                     decrypted_pem, password=None
                 )
 
-                # 2) Load delegation token from JSON
+                # Load delegation token from JSON
                 token_dict = json.loads(cached_entry["token"])
 
-                # 3) Check if delegation token is expired and refresh if needed
+                # Check if delegation token is expired and refresh if needed
                 needs_refresh = False
                 not_after_str = token_dict.get("not_after")
 
@@ -274,7 +272,7 @@ def select_and_enter_room(user_folder: Path, username: str, p2p_client):
 
                     token_dict = new_token  # start using the refreshed token
 
-                # 4) Data ready to be used in the auction room
+                # Data ready to be used in the auction room
                 pseudo_data_ram = {
                     "pseudo_id": cached_entry["pseudo_id"],
                     "pseudo_priv": pseudo_priv_obj,
@@ -286,9 +284,9 @@ def select_and_enter_room(user_folder: Path, username: str, p2p_client):
                 print(f" [CRYPTO ERROR] Wrong password or corrupted data: {e}")
                 return
 
-        # ============================================================
+       
         # CASE B: First time in this auction – create a new pseudonym
-        # ============================================================
+       
         else:
             print(" -> Generating new anonymous identity for this auction...")
 
@@ -312,7 +310,7 @@ def select_and_enter_room(user_folder: Path, username: str, p2p_client):
             pseudo_id = generate_pseudonym()
             pseudo_priv, _, pseudo_pub_pem = generate_pseudonym_keypair()
 
-            # Build delegation token (dict)
+            # Build delegation token 
             delegation_token = build_pseudonym_token(
                 user_priv_key, user_cert_serial, auction_id, pseudo_id, pseudo_pub_pem
             )
@@ -343,16 +341,16 @@ def select_and_enter_room(user_folder: Path, username: str, p2p_client):
             }
             print(f" -> New pseudonym {pseudo_id} created, encrypted, and saved.")
 
-        # ------------------------------------------------------------------
-        # 2. Associar pseudónimo ao meu peer_id no tracker (para futura resolução)
-        # ------------------------------------------------------------------
+       
+        # Mapping pseudonym - peer id at the tracker
+    
         if p2p_client is not None:
             try:
                 p2p_client.associate_pseudonym(int(auction_id), pseudo_data_ram["pseudo_id"])
             except Exception:
                 pass
 
-        # --- Enter the live auction room ---
+        # Enters the live auction room
         enter_auction_room(
             user_folder,
             username,

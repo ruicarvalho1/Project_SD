@@ -9,9 +9,9 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
 
-# ----------------------------------------------------------------------
+
 # Global refresh flag used by the auction room
-# ----------------------------------------------------------------------
+
 NEEDS_REFRESH = False
 
 
@@ -21,9 +21,9 @@ def signal_refresh() -> None:
     NEEDS_REFRESH = True
 
 
-# ----------------------------------------------------------------------
+
 # Tracker HTTP base URL (Peer_Server)
-# ----------------------------------------------------------------------
+
 TRACKER_HTTP_URL = "http://127.0.0.1:5555"
 
 
@@ -47,9 +47,9 @@ def fetch_remote_auction_leader(auction_id: str) -> Optional[str]:
     return None
 
 
-# ==============================================================================
+
 # 1. PSEUDONYM CACHE (PRIVATE & ENCRYPTED PER USER)
-# ==============================================================================
+
 
 PSEUDONYM_CACHE: dict[str, dict] = {}
 CACHE_FILE_NAME = "pseudonym_cache.json"
@@ -72,7 +72,7 @@ def derive_key(password: str, salt: bytes) -> bytes:
 
 
 def encrypt_data(password: str, data: bytes) -> tuple[bytes, bytes]:
-    """Encrypt data using a key derived from the given password."""
+    #Encrypt data using a key derived from the given password.
     salt = os.urandom(16)
     key = derive_key(password, salt)
     f = Fernet(key)
@@ -80,7 +80,7 @@ def encrypt_data(password: str, data: bytes) -> tuple[bytes, bytes]:
 
 
 def decrypt_data(password: str, encrypted_data: bytes, salt: bytes) -> bytes:
-    """Decrypt data using a key derived from the given password."""
+    #Decrypt data using a key derived from the given password.
     key = derive_key(password, salt)
     f = Fernet(key)
     return f.decrypt(encrypted_data)
@@ -109,7 +109,7 @@ def load_pseudonym_cache(user_folder: Path) -> None:
 
 
 def save_pseudonym_cache(user_folder: Path) -> None:
-    """Persist the pseudonym cache for the current user."""
+    #Persist the pseudonym cache for the current user.
     cache_file = get_cache_path(user_folder)
     try:
         with open(cache_file, "w") as f:

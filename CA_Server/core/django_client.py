@@ -22,9 +22,9 @@ def fetch_ca_cert():
 
 
 def publish_ca_cert(cert_pem, serial):
-    """
-    Uploads the new CA certificate to Django.
-    """
+    
+    # Uploads the new CA certificate to Django.
+    
     try:
         requests.post(
             f"{DJANGO_API_URL}/storeca/",
@@ -40,9 +40,9 @@ def publish_ca_cert(cert_pem, serial):
 
 
 def publish_user_cert(username, cert_pem, serial):
-    """
-    Uploads the signed user certificate to Django.
-    """
+    
+    # Uploads the signed user certificate to Django.
+    
     return requests.post(
         f"{DJANGO_API_URL}/store/",
         json={

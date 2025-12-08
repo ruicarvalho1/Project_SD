@@ -23,15 +23,15 @@ def display_auction_header(auction_id, wallet_address, pseudonym_id):
             print(" [INFO] Auction ended or does not exist.")
             return False
 
-        # 2. Compute time left using ONLY blockchain timestamp
+        # Compute time left using ONLY blockchain timestamp
         now_ts = blockchain_client.get_current_blockchain_timestamp()
         time_left = target_auction["close_date"] - now_ts
         time_str = f"{int(time_left / 60)} min" if time_left > 0 else "ENDED"
 
-        # 3. Wallet balance
+        # Wallet balance
         balance = blockchain_client.get_internal_balance(wallet_address)
 
-        # 4. Fetch leader pseudonym from tracker
+        # Fetch leader pseudonym from tracker
         leader_pseudonym = fetch_remote_auction_leader(str(auction_id))
         if not leader_pseudonym:
             leader_pseudonym = "(unknown)"

@@ -1,4 +1,4 @@
-# Auction_Client/auction_room.py
+
 import json
 import base64
 import time
@@ -31,10 +31,10 @@ def enter_auction_room(
     """
     Live auction session.
 
-    - Mostra informação em tempo real do leilão (blockchain + tracker).
-    - Permite ao utilizador licitar enquanto o leilão está ativo.
-    - Quando o leilão termina, anuncia o vencedor (pseudónimo) a quem estiver na sala.
-    - Se eu for o seller, inicia a troca de certificados com o vencedor via P2P.
+    - Shows data about the auction in real time(blockchain + tracker).
+    - The user can bid while the auction is live
+    - When the auction ends, the winner is annouced (his pseudonym) to everyone that is in the room
+    - The seller iniates the certificate swapping, to reveal his identity to the winner( via P2P)
     """
     print("\n [SETUP] Wallet unlock required.")
     password = input(" Wallet Password: ").strip()
@@ -48,7 +48,7 @@ def enter_auction_room(
 
     wallet_address = account.address
 
-    # Callback P2P para refrescar quando chegar NEW_BID
+    # Callback P2P to refresh when NEW_BID arrives
     try:
         if p2p_client is not None:
             p2p_client.set_refresh_callback(lambda *_: signal_refresh())
@@ -59,9 +59,9 @@ def enter_auction_room(
     first_loop = True
 
     while True:
-        # ------------------------------------------------------------------
-        # 1) Ler estado on-chain para ver se o leilão ainda existe / está ativo
-        # ------------------------------------------------------------------
+      
+        # Reads the on-chain state to see if the auction is still on
+        
         details = blockchain_client.get_auction_details(auction_id)
         if not details:
             print(" [INFO] Auction not found on-chain.")
@@ -77,33 +77,33 @@ def enter_auction_room(
         active = details.get("active", False)
         time_left = close_date - now_ts
 
-        # ------------------------------------------------------------------
-        # 2) Desenhar header (CURRENT BID, HIGH BID, TIME LEFT, BALANCE)
-        # ------------------------------------------------------------------
+    
+        # Constructs the header (CURRENT BID, HIGH BID, TIME LEFT, BALANCE)
+        
         if NEEDS_REFRESH or first_loop:
             if not display_auction_header(auction_id, wallet_address, pseudonym_id):
-                # Se o header disser que acabou / não existe, anuncia vencedor e sai
+               
                 announce_auction_winner(auction_id, wallet_address, user_folder, p2p_client)
                 break
             NEEDS_REFRESH = False
             first_loop = False
 
-        # ------------------------------------------------------------------
-        # 3) Se o leilão terminou, anunciar vencedor e sair da sala
-        # ------------------------------------------------------------------
+       
+        #  # If its over, the winner is announced and leaves the room
+      
         if time_left <= 0 or not active:
             announce_auction_winner(auction_id, wallet_address, user_folder, p2p_client)
             break
 
         # ------------------------------------------------------------------
-        # 4) Input com timeout para poder atualizar TIME LEFT periodicamente
+        # 4) Input with timeout so it cans update TIME LEFT occasionally
         # ------------------------------------------------------------------
         bid_amount = input_with_timeout(
             " Enter bid amount ('R' refresh / 'EXIT' leave): ",
             timeout=5.0,
         )
 
-        # Timeout: ninguém escreveu nada → forçar refresh no próximo ciclo
+        # Timeout: none input → forces refresh on the next cicle
         if bid_amount is None:
             NEEDS_REFRESH = True
             continue
@@ -123,11 +123,10 @@ def enter_auction_room(
             time.sleep(1)
             continue
 
-        # ------------------------------------------------------------------
-        # 5) Enviar bid para a blockchain (com TSA) e broadcast via P2P
-        # ------------------------------------------------------------------
+        # Sends bid to blockchain ( with TSA timestamp) and broadcasts via P2P
+       
         try:
-            # 5.1) Mensagem canónica para o TSA
+            #  Message to the TSA
             msg_obj_for_tsa = {
                 "auction_id": auction_id,
                 "amount": bid_amount,
@@ -137,13 +136,13 @@ def enter_auction_room(
                 msg_obj_for_tsa, sort_keys=True
             ).encode("utf-8")
 
-            # 5.2) Pedir timestamp ao TSA
+            # Requests Timestamp
             tsa_token = request_timestamp(msg_bytes_for_tsa)
-            tsa_iso = tsa_token["timestamp"]          # ex: "2025-12-06T21:15:45.894605Z"
+            tsa_iso = tsa_token["timestamp"]          
             tsa_dt = datetime.fromisoformat(tsa_iso.replace("Z", "+00:00"))
-            tsa_timestamp = int(tsa_dt.timestamp())   # uint para o contrato
+            tsa_timestamp = int(tsa_dt.timestamp())   # changes to uint (unity used for time in the smart contracts)
 
-            # 5.3) Bid on-chain com timestamp TSA para tie-break
+            # Bid on-chain withtimestamp TSA so it breaks ties
             tx_hash = blockchain_client.place_bid_on_chain(
                 account,
                 auction_id,
@@ -152,10 +151,10 @@ def enter_auction_room(
             )
             print(f" Bid accepted. Tx: {tx_hash}")
 
-            # força refresh do header no próximo ciclo
+           
             signal_refresh()
 
-            # 5.4) Broadcast NEW_BID via P2P (para os outros peers atualizarem UI)
+            # Broadcasts NEW_BID via P2P 
             msg_obj = {
                 "auction_id": auction_id,
                 "amount": bid_amount,
@@ -201,13 +200,13 @@ def announce_auction_winner(
     p2p_client,
 ):
     """
-    Lê o resultado final na blockchain + tracker e mostra:
-      - valor da bid vencedora
-      - pseudónimo vencedor
+    Reads the final result blockchain + tracker and shows:
+      - winning bid values
+      - winner's pseudonym
 
-    Se EU for o seller:
-      - resolve (auction_id, pseudonym) → peer_id vencedor via tracker;
-      - envia CERT_REQUEST para esse peer (com o meu certificado).
+   The seller
+      - resolves (auction_id, pseudonym) → peer_id winner via tracker;
+      - sends CERT_REQUEST to that peer (with his certificate).
     """
     details = blockchain_client.get_auction_details(auction_id)
     print("\n=== AUCTION ENDED ===")
@@ -220,7 +219,7 @@ def announce_auction_winner(
     highest_bid = details.get("highest_bid", 0)
     seller_addr = (details.get("seller") or "").lower()
 
-    # Pseudónimo vencedor (off-chain, guardado no Peer_Server)
+    # Winner's Pseudonym (off-chain, saved in the Peer_Server)
     leader_pseudonym = fetch_remote_auction_leader(str(auction_id)) or "(unknown)"
 
     print(f"Auction #{auction_id} has finished.")
@@ -231,19 +230,19 @@ def announce_auction_winner(
         print(f"Winning pseudonym: {leader_pseudonym}")
     print("======================")
 
-    # Sou eu o seller?
+    # Am i the seller? (Verifies that comparing the wallet's adress)
     i_am_seller = wallet_address.lower() == seller_addr
 
     if not i_am_seller:
-        # Sou apenas licitador/observador – vejo o vencedor, mas não inicio troca de certificados
+        # Im just a bidder/watcher – i can only see the winner's pseudonym
         return
 
-    # Preciso de P2P + pseudónimo resolvido para iniciar CERT_REQUEST
+    # Im the seller - I need to resolve P2P + Pseudonym so i can start CERT_REQUEST
     if not p2p_client or leader_pseudonym in ("(unknown)", None, ""):
         print("[INFO] Cannot resolve winner peer (no P2P or unknown pseudonym).")
         return
 
-    # 1) Ler o meu certificado
+    # Reads the certificate
     try:
         cert_path = user_folder / "client_cert.pem"
         seller_cert_pem = cert_path.read_text()
@@ -251,7 +250,7 @@ def announce_auction_winner(
         print(f"[ERROR] Could not read seller certificate: {e}")
         return
 
-    # 2) Resolver pseudónimo → peer_id via tracker (/resolve)
+    # Resolves pseudonym → peer_id via tracker (/resolve)
     winner_peer_id = p2p_client.resolve_winner(auction_id, leader_pseudonym)
     if not winner_peer_id:
         print("[INFO] Could not resolve winner peer_id from tracker.")
@@ -260,7 +259,7 @@ def announce_auction_winner(
     print(f"[P2P] Winner peer_id resolved: {winner_peer_id}")
     print("[P2P] Sending CERT_REQUEST to winner...")
 
-    # 3) Enviar CERT_REQUEST via /direct (apenas seller ↔ winner)
+    # Sends CERT_REQUEST via /direct (only seller ↔ winner)
     ok = p2p_client.send_direct(
         peer_id=winner_peer_id,
         payload={

@@ -14,7 +14,7 @@ def sign_csr_request(csr_pem):
 
     csr = x509.load_pem_x509_csr(csr_pem.encode())
 
-    # 1. Validate CSR Signature
+    # Validate CSR Signature
     csr.public_key().verify(
         csr.signature,
         csr.tbs_certrequest_bytes,
@@ -22,7 +22,7 @@ def sign_csr_request(csr_pem):
         csr.signature_hash_algorithm,
     )
 
-    # 2. Extract Username
+    # Extract Username
     try:
         username = csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
     except IndexError:
@@ -31,7 +31,7 @@ def sign_csr_request(csr_pem):
     if not check_username_availability(username):
         raise ValueError(f"Certificate already exists for user: {username}")
 
-    # 3. Create User Certificate
+    # Create User Certificate
     now = datetime.datetime.utcnow()
     user_cert = (
         x509.CertificateBuilder()
@@ -48,7 +48,7 @@ def sign_csr_request(csr_pem):
 
     cert_pem = user_cert.public_bytes(serialization.Encoding.PEM).decode()
 
-    # 4. Publish to Django
+    # Publish to Django
     r = publish_user_cert(username, cert_pem, str(user_cert.serial_number))
     if r.status_code != 200:
         raise Exception(f"Django rejected storage: {r.text}")

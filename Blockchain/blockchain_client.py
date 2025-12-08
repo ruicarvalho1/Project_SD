@@ -78,7 +78,7 @@ def _send_signed_transaction(tx, private_key):
 
 
 def create_auction(account, description, duration_minutes, min_bid):
-    """Creates a new auction on-chain."""
+    #Creates a new auction on-chain.
     if not contract:
         raise Exception("Contract offline")
 
@@ -99,7 +99,7 @@ def create_auction(account, description, duration_minutes, min_bid):
 
 
 def place_bid_on_chain(account, auction_id, amount, tsa_timestamp):
-    """Places a bid on an auction (with TSA timestamp)."""
+    #Places a bid on an auction (with TSA timestamp).
     if not contract:
         raise Exception("Contract offline")
 
@@ -121,7 +121,7 @@ def place_bid_on_chain(account, auction_id, amount, tsa_timestamp):
 
 
 def get_all_auctions():
-    """Returns all auction structs."""
+    #Returns all auction structs.
     if not contract:
         return []
     try:
@@ -146,7 +146,7 @@ def get_all_auctions():
 
 
 def fund_new_user(target_address, amount_eth=10):
-    """Sends ETH from the bank account to bootstrap new users."""
+    #Sends ETH from the bank account to bootstrap new users.
     if not web3.is_connected():
         return False
     try:
@@ -175,7 +175,7 @@ def get_current_blockchain_timestamp():
 
 
 def get_auction_details(auction_id):
-    """Returns full info for a single auction, including active flag and highestBid."""
+    #Returns full info for a single auction, including active flag and highestBid.
     if not contract:
         return None
     try:
