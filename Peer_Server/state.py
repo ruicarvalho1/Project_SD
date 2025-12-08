@@ -4,32 +4,26 @@ import json
 import requests
 from threading import Lock
 
-# -------------------------------------------------------------------
-# Peers
-# -------------------------------------------------------------------
+# Peer tracking state (in-memory)
 PEERS = {}
 PEER_SIDS = {}
 SID_PEERS = {}
 TIMEOUT_SECONDS = 30
 STATE_LOCK = Lock()
 
-# -------------------------------------------------------------------
-# Leaders (auction_id -> leader_pseudonym)
-# -------------------------------------------------------------------
+# Auction leaders (auction_id -> leader_pseudonym) stored on disk
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LEADER_FILE = os.path.join(BASE_DIR, "auction_leaders.json")
 AUCTION_LEADERS = {}
 
-# Map of pseudonyms (auction_id:pseudonym -> peer_id)
+# Pseudonym map file (auction_id:pseudonym -> peer_id)
 MAP_FILE = os.path.join(BASE_DIR, "peer_pseudonym.json")
 
 TRACKER = "http://127.0.0.1:5555"
 
 
-# ===================== LEADERS =====================
-
+# Load auction leaders from disk into AUCTION_LEADERS.
 def load_auction_leaders():
-    """Load the auction leaders dictionary from disk into AUCTION_LEADERS."""
     print(f"[TRACKER] Loading auction leaders from: {LEADER_FILE}")
 
     global AUCTION_LEADERS
@@ -56,8 +50,8 @@ def load_auction_leaders():
         AUCTION_LEADERS.clear()
 
 
+# Persist AUCTION_LEADERS to disk.
 def save_auction_leaders():
-    """Persist the auction leaders dictionary (AUCTION_LEADERS) to disk."""
     try:
         with open(LEADER_FILE, "w") as f:
             json.dump(AUCTION_LEADERS, f, indent=4)
@@ -65,13 +59,8 @@ def save_auction_leaders():
         print(f"[TRACKER] Failed to save auction leaders: {e}")
 
 
+# Update the leader for an auction and save to disk.
 def update_auction_leader(auction_id: str, pseudonym_id: str):
-    """
-    Update the leader for a given auction and persist the change to disk.
-
-    :param auction_id: ID of the auction
-    :param pseudonym_id: pseudonym of the leader for this auction
-    """
     global AUCTION_LEADERS
     auction_id = str(auction_id)
     with STATE_LOCK:
@@ -80,16 +69,14 @@ def update_auction_leader(auction_id: str, pseudonym_id: str):
         print(f"[TRACKER] Auction {auction_id}: leader = {pseudonym_id}")
 
 
-# ===================== PEERS / HEARTBEAT =====================
-
+# Update last_seen timestamp for a peer.
 def update_peer_heartbeat(peer_id: str):
-    """Update last_seen timestamp for a peer."""
     if peer_id in PEERS:
         PEERS[peer_id]["last_seen"] = time.time()
 
 
+# Return list of active peers (not timed out).
 def get_active_peers():
-    """Return a list of peers that are active (not timed out)."""
     now = time.time()
     return [
         {"peer_id": pid, "host": info["host"], "port": info["port"]}
@@ -98,15 +85,8 @@ def get_active_peers():
     ]
 
 
-# ===================== PSEUDONYM MAP =====================
-
+# Load pseudonym map (auction_id:pseudonym -> peer_id) from disk.
 def load_map() -> dict:
-    """
-    Load the pseudonym map (auction_id:pseudonym -> peer_id) from disk.
-
-    If the file does not exist, is empty, or is invalid,
-    this function always returns an empty dict instead of raising.
-    """
     if not os.path.exists(MAP_FILE):
         return {}
 
@@ -124,8 +104,8 @@ def load_map() -> dict:
         return {}
 
 
+# Persist pseudonym map to disk.
 def save_map(data: dict) -> None:
-    """Persist the pseudonym map (auction_id:pseudonym -> peer_id) to disk."""
     try:
         with open(MAP_FILE, "w") as f:
             json.dump(data, f, indent=2)
@@ -133,15 +113,8 @@ def save_map(data: dict) -> None:
         print(f"[TRACKER] Failed to save pseudonym map: {e}")
 
 
-# ===================== CLIENT-SIDE HELPERS =====================
-
+# Client helper: resolve (auction_id, pseudonym) to peer_id via /resolve.
 def resolve_winner(auction_id, pseudonym):
-    """
-    Client helper: ask the tracker (HTTP) which peer_id corresponds to
-    a given pseudonym in a given auction.
-
-    Uses the /resolve endpoint (no seller_id).
-    """
     try:
         r = requests.post(
             TRACKER + "/resolve",
@@ -162,10 +135,8 @@ def resolve_winner(auction_id, pseudonym):
         return None
 
 
+# Client helper: send a direct message to a single peer via /direct.
 def direct_message(token, target_peer, message_type, message_body):
-    """
-    Client helper: send a private message to a single peer via /direct.
-    """
     try:
         requests.post(
             TRACKER + "/direct",

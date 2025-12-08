@@ -3,7 +3,6 @@ import base64
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
-# URL da API do Django
 AUTH_URL = "http://127.0.0.1:8000/api"
 
 

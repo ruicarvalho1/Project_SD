@@ -22,22 +22,22 @@ Uses PBKDF2HMAC with 100,000 iterations to resist brute-force attacks.
 
 def create_encrypted_wallet(password: str):
     """
-Generates a new Ethereum account and encrypts the private key.
+Generates a new Ethereum account an encrypts the private key.
 Returns: Address (str) and Encrypted Data (str).
 """
 
     new_account = Account.create()
     private_key_hex = new_account.key.hex()
 
-    # 2. Generate Salt
+    # Generate Salt
     salt = os.urandom(16)
 
-    # 3. Derivate Key and Encrypt Private Key
+    # Derivate Key and Encrypt Private Key
     key = _derive_key(password, salt)
     f = Fernet(key)
     token = f.encrypt(private_key_hex.encode())
 
-    # 4. Combine Salt and Token
+    # Combine Salt and Token
     encrypted_data = base64.urlsafe_b64encode(salt).decode() + "." + token.decode()
 
     return new_account.address, encrypted_data
@@ -50,27 +50,27 @@ Loads and decrypts the wallet file to retrieve the Ethereum account.
     file_path = user_folder / "wallet.enc"
 
     if not file_path.exists():
-        raise FileNotFoundError("Ficheiro de carteira não encontrado.")
+        raise FileNotFoundError("Wallet file not found.")
 
     data = file_path.read_text().strip()
 
     try:
-        # 1. Separate Salt and Token
+        # Separate Salt and Token
         salt_b64, token = data.split(".")
         salt = base64.urlsafe_b64decode(salt_b64)
 
-        # 2. Derive Key
+        # Derive Key
         key = _derive_key(password, salt)
         f = Fernet(key)
 
-        # 3. Decrypt Private Key
+        # Decrypt Private Key
         private_key_hex = f.decrypt(token.encode()).decode()
 
         return Account.from_key(private_key_hex)
 
     except Exception:
 
-        raise ValueError("Password incorreta ou ficheiro corrompido.")
+        raise ValueError("Incorrect password or corrupted file.")
 
 
 def save_wallet_file(user_folder, encrypted_data):

@@ -67,24 +67,7 @@ def get_tsa_cert():
 
 @app.route("/timestamp", methods=["POST"])
 def timestamp():
-    """
-    Request JSON:
-    {
-      "digest_b64": "<base64 digest>",
-      "digest_algo": "sha256"
-    }
 
-    Response JSON:
-    {
-      "digest_algo": "sha256",
-      "digest_b64": "...",
-      "timestamp": "2025-11-20T12:34:56.789000Z",
-      "nonce": "<uuid4>",
-      "serial": "<uuid4>",
-      "signature_b64": "...",
-      "tsa_cert_pem": "-----BEGIN CERTIFICATE-----..."
-    }
-    """
     data = request.get_json()
     if not data or "digest_b64" not in data or "digest_algo" not in data:
         return jsonify({"error": "Provide digest_b64 and digest_algo"}), 400

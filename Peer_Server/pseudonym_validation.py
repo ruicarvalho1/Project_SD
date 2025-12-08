@@ -14,10 +14,8 @@ AUTH_SERVER_BASE = "http://127.0.0.1:8000"
 GET_USER_CERT_ENDPOINT = "/api/get_user_cert/"
 
 
+# Fetch the user's real certificate from the Django CA.
 def _fetch_user_certificate(username: str):
-    """
-    Fetch the user's certificate from the Django CA service.
-    """
     try:
         resp = requests.post(
             AUTH_SERVER_BASE + GET_USER_CERT_ENDPOINT,
@@ -35,31 +33,24 @@ def _fetch_user_certificate(username: str):
         return None, None
 
 
+# Convert a token timestamp into a timezone-aware UTC datetime.
 def _parse_token_time(value: str) -> datetime:
-    """
-    Normalize time strings from the delegation token into a timezone-aware UTC datetime.
-
-    """
     if not isinstance(value, str):
         raise ValueError(f"Invalid time value type: {type(value)}")
 
     v = value.strip()
-
     if v.endswith("Z"):
         v = v[:-1]
 
     dt = datetime.fromisoformat(v)
-
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
 
     return dt
 
 
+# Validate structure and validity window of a delegation token.
 def _validate_delegation_token_structure(token: dict, msg_data: dict) -> bool:
-    """
-    Basic structural and temporal validation of the delegation token.
-    """
     required_fields = [
         "auction_id",
         "pseudonym_id",
@@ -75,7 +66,6 @@ def _validate_delegation_token_structure(token: dict, msg_data: dict) -> bool:
             print(f"[PSEUDONYM] Delegation token missing field: {field}")
             return False
 
-    # Bind auction_id and pseudonym_id to the message
     if str(token["auction_id"]) != str(msg_data.get("auction_id")):
         print("[PSEUDONYM] Token auction_id does not match message auction_id")
         return False
@@ -84,7 +74,6 @@ def _validate_delegation_token_structure(token: dict, msg_data: dict) -> bool:
         print("[PSEUDONYM] Token pseudonym_id does not match message pseudonym_id")
         return False
 
-    # Check temporal validity
     try:
         now = datetime.now(timezone.utc)
         not_before = _parse_token_time(token["not_before"])
@@ -100,17 +89,13 @@ def _validate_delegation_token_structure(token: dict, msg_data: dict) -> bool:
     return True
 
 
+# Verify the token signature using the user's real certificate.
 def _verify_delegation_signature(token: dict, username: str) -> bool:
-    """
-    Verify that the delegation token was signed by the user's real identity
-    (using the certificate stored in Django).
-    """
     cert_pem, serial_number = _fetch_user_certificate(username)
     if not cert_pem or not serial_number:
         print("[PSEUDONYM] Could not retrieve user certificate from auth server")
         return False
 
-    # Serial must match
     if str(serial_number) != str(token.get("user_cert_serial")):
         print("[PSEUDONYM] user_cert_serial mismatch between token and database")
         return False
@@ -149,11 +134,8 @@ def _verify_delegation_signature(token: dict, username: str) -> bool:
         return False
 
 
+# Verify pseudonym private-key signature on the bid.
 def _verify_pseudonym_signature(token: dict, msg_data: dict) -> bool:
-    """
-    Verify that the bid was signed by the pseudonym private key, using the
-    public key included in the delegation token.
-    """
     pseudo_sig_b64 = msg_data.get("pseudonym_signature")
     if not pseudo_sig_b64:
         print("[PSEUDONYM] Missing pseudonym_signature in message")
@@ -192,7 +174,6 @@ def _verify_pseudonym_signature(token: dict, msg_data: dict) -> bool:
         pseudo_pub_key.verify(pseudo_sig, message)
         return True
     except TypeError:
-        # RSA/PKCS#1 v1.5 + SHA-256
         try:
             pseudo_pub_key.verify(
                 pseudo_sig,
@@ -209,15 +190,8 @@ def _verify_pseudonym_signature(token: dict, msg_data: dict) -> bool:
         return False
 
 
+# High-level validation for NEW_BID (delegation + pseudonym).
 def validate_delegation_and_pseudonym(msg_data: dict, sender_id: str) -> bool:
-    """
-    High-level validation used by /broadcast on NEW_BID events.
-
-    Steps:
-    1) Validate delegation_token structure + time window.
-    2) Verify delegation_token signature with the user's certificate.
-    3) Verify pseudonym_signature using the pseudonym public key.
-    """
     delegation_token = msg_data.get("delegation_token")
 
     if delegation_token is None:

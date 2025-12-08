@@ -1,4 +1,3 @@
-# Login_Client/p2p_ws_client.py
 import socketio
 import threading
 import requests
@@ -14,20 +13,17 @@ def set_global_token(token: str) -> None:
 
 
 class P2PTrackerClient:
-    """WebSocket client for real-time communication with the tracker."""
-
+    """WebSocket client to interact with the P2P tracker server."""
     def __init__(self, username: str):
         self.username = username
         self.sio = socketio.Client(reconnection=True)
         self.is_authenticated = False
 
-        # callbacks
-        self.refresh_callback = None      # para "new_event"
-        self.direct_handler = None        # para "direct_message"
+        self.refresh_callback = None
+        self.direct_handler = None
 
         @self.sio.on("connect")
         def on_connect():
-            # ligação estabelecida
             pass
 
         @self.sio.on("disconnect")
@@ -41,9 +37,6 @@ class P2PTrackerClient:
 
         @self.sio.on("new_event")
         def on_new_event(data):
-            """
-            Evento broadcast vindo do tracker (NEW_BID, NEW_AUCTION, etc.).
-            """
             if self.refresh_callback:
                 try:
                     self.refresh_callback(data)
@@ -52,32 +45,26 @@ class P2PTrackerClient:
 
         @self.sio.on("direct_message")
         def on_direct_message(msg):
-            """
-            Mensagem direta (CERT_REQUEST, CERT_RESPONSE, etc.)
-            enviada apenas para este peer.
-            """
             if self.direct_handler:
                 try:
                     self.direct_handler(msg)
                 except TypeError:
                     self.direct_handler()
 
-    # ------------------------------------------------------------------ #
-    # Callbacks
-    # ------------------------------------------------------------------ #
+
+    # Callback registration
     def set_refresh_callback(self, callback_func):
-        """Regista a função chamada nos broadcasts públicos (new_event)."""
+        """Register the callback for broadcast events (new_event)."""
         self.refresh_callback = callback_func
 
     def set_direct_handler(self, callback_func):
-        """Regista a função chamada nas mensagens diretas (direct_message)."""
+        """Register the callback for direct peer-to-peer messages."""
         self.direct_handler = callback_func
 
-    # ------------------------------------------------------------------ #
-    # Ligação e autenticação
-    # ------------------------------------------------------------------ #
+
+    # Connection and Authentication
     def connect_and_auth(self, token: str, p2p_port: int) -> bool:
-        """Connect to tracker and authenticate using JWT."""
+        """Connect to the tracker and authenticate using JWT."""
         try:
             self.sio.connect(
                 TRACKER_WS_URL,
@@ -89,17 +76,12 @@ class P2PTrackerClient:
             return False
         return True
 
-    # ------------------------------------------------------------------ #
-    # Broadcast público (NEW_BID, NEW_AUCTION, ...)
-    # ------------------------------------------------------------------ #
+
+    # Public broadcast
     def broadcast_event(self, message_type: str, payload: dict) -> None:
         """
-        Sends a broadcast event to the tracker via HTTP.
-
-        The tracker will:
-        - validate the token,
-        - optionally update its internal state (e.g., auction leader),
-        - broadcast "new_event" to all connected peers.
+        Send a broadcast event to the tracker.
+        Tracker validates the token and rebroadcasts to all peers.
         """
         if not GLOBAL_SESSION_TOKEN:
             return
@@ -119,14 +101,10 @@ class P2PTrackerClient:
         except Exception:
             pass
 
-    # ------------------------------------------------------------------ #
-    # Associação pseudónimo → peer_id (usado mais tarde para resolver vencedor)
-    # ------------------------------------------------------------------ #
+
+    # Pseudonym association (used to resolve winner later)
     def associate_pseudonym(self, auction_id: int, pseudonym_id: str) -> None:
-        """
-        Diz ao tracker: 'no leilão X, o pseudónimo Y pertence a este peer_id (username)'.
-        Usa o endpoint /associate_pseudonym.
-        """
+        """Tell the tracker that pseudonym_id belongs to this peer for a given auction."""
         try:
             requests.post(
                 f"{TRACKER_WS_URL}/associate_pseudonym",
@@ -140,14 +118,10 @@ class P2PTrackerClient:
         except Exception:
             pass
 
-    # ------------------------------------------------------------------ #
-    # Resolver (auction_id, pseudonym) → peer_id
-    # ------------------------------------------------------------------ #
+
+    # Resolve (auction_id, pseudonym) → peer_id
     def resolve_winner(self, auction_id: int, pseudonym_id: str):
-        """
-        Pergunta ao tracker: 'no leilão X, o pseudónimo Y corresponde a que peer_id?'.
-        Usa o endpoint /resolve.
-        """
+        """Ask the tracker which peer_id owns the given pseudonym for an auction."""
         try:
             resp = requests.post(
                 f"{TRACKER_WS_URL}/resolve",
@@ -159,26 +133,14 @@ class P2PTrackerClient:
             )
             if resp.status_code != 200:
                 return None
-            data = resp.json()
-            return data.get("peer_id")
+            return resp.json().get("peer_id")
         except Exception:
             return None
 
-    # ------------------------------------------------------------------ #
-    # Mensagem direta para UM peer (CERT_REQUEST, CERT_RESPONSE, etc.)
-    # ------------------------------------------------------------------ #
-    def send_direct(self, peer_id: str, payload: dict) -> bool:
-        """
-        Envia uma mensagem privada para um peer específico (por peer_id),
-        através do endpoint /direct.
 
-        payload: dict com, por exemplo:
-            {
-                "type": "CERT_REQUEST",
-                "auction_id": ...,
-                "seller_cert": "...PEM..."
-            }
-        """
+    # Direct peer-to-peer messaging
+    def send_direct(self, peer_id: str, payload: dict) -> bool:
+
         if not GLOBAL_SESSION_TOKEN:
             return False
 

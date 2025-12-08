@@ -105,7 +105,7 @@ def login_flow():
     user_folder = get_user_folder(username)
     cert_path = user_folder / "client_cert.pem"
 
-    # Load certificate (local or custom path)
+    # Load certificate
     if not cert_path.exists():
         custom_path = input("Enter full path to your certificate (.pem): ").strip()
         p = Path(custom_path)
